@@ -1,0 +1,92 @@
+{
+  "date": "2026-09-02",
+  "generated_at": "2026-09-02T14:14:24.749982+00:00",
+  "dry_run": true,
+  "pipeline": {
+    "fetched": 1207,
+    "url_duplicates_removed": 142,
+    "history_duplicates_removed": 0,
+    "model_candidates": 60,
+    "model_scored": 60,
+    "above_threshold": 9,
+    "selected": 7
+  },
+  "selection": {
+    "profiles": {
+      "tech-news": 6,
+      "ai-product-fde": 1
+    },
+    "regions": {
+      "global": 7
+    },
+    "deep_items": 5,
+    "brief_items": 2
+  },
+  "sources": [
+    {
+      "source": "GitHub",
+      "status": "success",
+      "item_count": 23
+    },
+    {
+      "source": "Hacker News",
+      "status": "success",
+      "item_count": 122
+    },
+    {
+      "source": "RSS Feeds",
+      "status": "success",
+      "item_count": 762
+    },
+    {
+      "source": "Reddit",
+      "status": "success",
+      "item_count": 12
+    },
+    {
+      "source": "OSS Insight",
+      "status": "empty",
+      "item_count": 0
+    },
+    {
+      "source": "GDELT",
+      "status": "success",
+      "item_count": 75
+    },
+    {
+      "source": "Google News [1: (OpenAI OR Anthropic OR Google OR Me]",
+      "status": "success",
+      "item_count": 60
+    },
+    {
+      "source": "Google News [2: (OpenAI OR Anthropic OR DeepMind OR ]",
+      "status": "success",
+      "item_count": 55
+    },
+    {
+      "source": "Google News [3: (DeepSeek OR 通义千问 OR 人工智能 OR 大模型) (产]",
+      "status": "success",
+      "item_count": 60
+    },
+    {
+      "source": "Google News [4: (DeepSeek OR 通义千问 OR 大模型) (技术 OR 论文 ]",
+      "status": "success",
+      "item_count": 38
+    },
+    {
+      "source": "Hugging Face Daily Papers",
+      "status": "empty",
+      "item_count": 0
+    }
+  ],
+  "model": {
+    "provider": "deepseek",
+    "model": "deepseek-v4-flash",
+    "input_tokens": 86078,
+    "output_tokens": 88528,
+    "total_tokens": 174606,
+    "estimated_cost_usd": 0.154731,
+    "pricing_configured": true,
+    "pricing_note": "DeepSeek V4 Flash peak cache-miss rates checked 2026-09-02; conservative estimate because cache-hit usage is not separated."
+  }
+}
