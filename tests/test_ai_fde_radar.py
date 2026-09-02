@@ -154,6 +154,87 @@ def test_prefilter_caps_model_scoring_and_drops_unresolved_google_links() -> Non
     assert unresolved not in selected
 
 
+def test_prefilter_reserves_scoring_capacity_for_each_target_matrix_cell() -> None:
+    radar_config = config()
+    radar_config.collection.candidate_limit = 60
+    orchestrator = HorizonOrchestrator(radar_config, SimpleNamespace())
+    candidates = []
+    index = 0
+    for region, profile, count, tier in [
+        ("global", "tech-news", 100, 1),
+        ("global", "ai-product-fde", 30, 2),
+        ("china", "tech-news", 30, 2),
+        ("china", "ai-product-fde", 30, 2),
+    ]:
+        for source_index in range(count):
+            candidate = item(index, region, profile)
+            candidate.processing = None
+            candidate.metadata.update(
+                {
+                    "source_tier": tier,
+                    "feed_name": f"{region}-{profile}-source-{source_index % 5}",
+                }
+            )
+            candidates.append(candidate)
+            index += 1
+
+    selected = orchestrator.prefilter_candidates(candidates)
+    counts: dict[str, int] = {}
+    for candidate in selected:
+        key = f"{candidate.metadata['region']}/{candidate.profile}"
+        counts[key] = counts.get(key, 0) + 1
+
+    assert len(selected) == 60
+    assert counts == {
+        "global/ai-product-fde": 18,
+        "global/tech-news": 18,
+        "china/ai-product-fde": 12,
+        "china/tech-news": 12,
+    }
+
+
+def test_prefilter_backfills_missing_matrix_supply_without_exceeding_limit() -> None:
+    radar_config = config()
+    radar_config.collection.candidate_limit = 10
+    orchestrator = HorizonOrchestrator(radar_config, SimpleNamespace())
+    scarce = [item(i, "china", "ai-product-fde") for i in range(1)]
+    abundant = [item(100 + i, "global", "tech-news") for i in range(20)]
+    candidates = scarce + abundant
+    for candidate in candidates:
+        candidate.processing = None
+
+    selected = orchestrator.prefilter_candidates(candidates)
+
+    assert len(selected) == 10
+    assert selected.count(scarce[0]) == 1
+    assert len({candidate.id for candidate in selected}) == 10
+
+
+def test_prefilter_soft_source_cap_preserves_source_diversity() -> None:
+    radar_config = config()
+    radar_config.collection.candidate_limit = 20
+    radar_config.digest.matrix_targets = {"global/tech-news": 20}
+    orchestrator = HorizonOrchestrator(radar_config, SimpleNamespace())
+    candidates = []
+    for index in range(40):
+        candidate = item(index, "global", "tech-news")
+        candidate.processing = None
+        candidate.metadata["feed_name"] = (
+            "dominant-arxiv" if index < 20 else f"feed-{index % 5}"
+        )
+        candidates.append(candidate)
+
+    selected = orchestrator.prefilter_candidates(candidates)
+    source_counts: dict[str, int] = {}
+    for candidate in selected:
+        source = str(candidate.metadata["feed_name"])
+        source_counts[source] = source_counts.get(source, 0) + 1
+
+    assert len(selected) == 20
+    assert source_counts["dominant-arxiv"] <= 5
+    assert len(source_counts) >= 4
+
+
 def test_history_deduplicates_url_and_title_but_allows_marked_progress(
     tmp_path: Path,
 ) -> None:

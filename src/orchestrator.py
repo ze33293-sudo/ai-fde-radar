@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import math
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -511,7 +512,14 @@ class HorizonOrchestrator:
         )
 
     def prefilter_candidates(self, items: List[ContentItem]) -> List[ContentItem]:
-        """Apply deterministic evidence checks and cap AI-scored candidates."""
+        """Apply evidence checks and build a balanced AI-scoring candidate pool.
+
+        The final digest matrix is expanded proportionally to ``candidate_limit``
+        so a high-volume feed (for example arXiv) cannot consume every model
+        scoring slot before China or product/FDE candidates are considered.
+        Empty cells are backfilled from the remaining best evidence, preserving
+        the configured quality-first behavior.
+        """
         eligible = []
         for item in items:
             if (
@@ -526,19 +534,144 @@ class HorizonOrchestrator:
             eligible.append(item)
 
         eligible.sort(
-            key=lambda item: (
-                int(item.metadata.get("source_tier", 2)),
-                -item.published_at.timestamp(),
-                -int(item.metadata.get("score") or item.metadata.get("stars_gained") or 0),
-            )
+            key=self._candidate_priority
         )
-        limited = eligible[: self.config.collection.candidate_limit]
+        limit = self.config.collection.candidate_limit
+        matrix_budgets = self._candidate_matrix_budgets(limit)
+        if not matrix_budgets:
+            limited = eligible[:limit]
+        else:
+            limited = []
+            selected_ids: set[str] = set()
+
+            for matrix_key, budget in matrix_budgets.items():
+                cell_candidates = [
+                    item
+                    for item in eligible
+                    if item.id not in selected_ids
+                    and self._candidate_matches_matrix(item, matrix_key)
+                ]
+                # Four distinct sources per full cell is a soft diversity goal.
+                # A second pass below relaxes it when the open-web supply is thin.
+                per_source_soft_cap = max(1, math.ceil(budget / 4))
+                source_counts: Dict[str, int] = defaultdict(int)
+                cell_selected: List[ContentItem] = []
+
+                for item in cell_candidates:
+                    source_key = self._candidate_source_key(item)
+                    if source_counts[source_key] >= per_source_soft_cap:
+                        continue
+                    cell_selected.append(item)
+                    source_counts[source_key] += 1
+                    if len(cell_selected) >= budget:
+                        break
+
+                if len(cell_selected) < budget:
+                    cell_ids = {item.id for item in cell_selected}
+                    for item in cell_candidates:
+                        if item.id in cell_ids:
+                            continue
+                        cell_selected.append(item)
+                        if len(cell_selected) >= budget:
+                            break
+
+                limited.extend(cell_selected)
+                selected_ids.update(item.id for item in cell_selected)
+
+            # Quality-first deficit fill: cells with insufficient supply donate
+            # their unused slots to the strongest remaining eligible evidence.
+            for item in eligible:
+                if len(limited) >= limit:
+                    break
+                if item.id not in selected_ids:
+                    limited.append(item)
+                    selected_ids.add(item.id)
+
         if len(limited) < len(items):
             self.console.print(
                 f"{self.icons['filter']} Rule prefilter retained {len(limited)}/"
                 f"{len(items)} candidates for model scoring\n"
             )
+        if matrix_budgets:
+            matrix_counts: Dict[str, int] = defaultdict(int)
+            for item in limited:
+                for matrix_key in matrix_budgets:
+                    if self._candidate_matches_matrix(item, matrix_key):
+                        matrix_counts[matrix_key] += 1
+                        break
+            for matrix_key, budget in matrix_budgets.items():
+                self.console.print(
+                    f"      {self.icons['detail']} candidate {matrix_key}: "
+                    f"{matrix_counts.get(matrix_key, 0)}/{budget}"
+                )
+            self.console.print("")
         return limited
+
+    @staticmethod
+    def _candidate_priority(item: ContentItem) -> tuple[int, float, int]:
+        return (
+            int(item.metadata.get("source_tier", 2)),
+            -item.published_at.timestamp(),
+            -int(item.metadata.get("score") or item.metadata.get("stars_gained") or 0),
+        )
+
+    def _candidate_matrix_budgets(self, limit: int) -> Dict[str, int]:
+        """Scale final matrix targets to the model-scoring candidate limit."""
+        targets = {
+            key: target
+            for key, target in self.config.digest.matrix_targets.items()
+            if target > 0
+        }
+        total = sum(targets.values())
+        if not targets or total <= 0:
+            return {}
+
+        exact = {key: limit * target / total for key, target in targets.items()}
+        budgets = {key: math.floor(value) for key, value in exact.items()}
+        remainder = limit - sum(budgets.values())
+        order = {key: index for index, key in enumerate(targets)}
+        for key in sorted(
+            targets,
+            key=lambda candidate: (-(exact[candidate] - budgets[candidate]), order[candidate]),
+        )[:remainder]:
+            budgets[key] += 1
+        return budgets
+
+    def _candidate_profiles(self, item: ContentItem) -> set[str]:
+        requested = item.profile
+        if isinstance(requested, list):
+            profiles = {profile.strip() for profile in requested if profile.strip()}
+        elif isinstance(requested, str) and requested.strip():
+            profiles = {requested.strip()}
+        elif item.processing:
+            profiles = {item.processing.classification.profile}
+        else:
+            profiles = {self.profiles.default_profile}
+        return profiles
+
+    def _candidate_matches_matrix(self, item: ContentItem, matrix_key: str) -> bool:
+        region, _, profile = matrix_key.partition("/")
+        item_region = str(item.metadata.get("region") or "global")
+        return item_region == region and profile in self._candidate_profiles(item)
+
+    @staticmethod
+    def _candidate_source_key(item: ContentItem) -> str:
+        """Return a stable source bucket used only for prefilter diversity."""
+        metadata = item.metadata
+        for field_name in (
+            "feed_name",
+            "source_name",
+            "subreddit",
+            "repo",
+            "watchlist",
+            "domain",
+            "gn_query",
+        ):
+            value = metadata.get(field_name)
+            if value:
+                return f"{item.source_type.value}:{value}"
+        hostname = urlsplit(str(item.url)).hostname or "unknown"
+        return f"{item.source_type.value}:{hostname.casefold()}"
 
     async def hydrate_selected_items(
         self, items: List[ContentItem]
