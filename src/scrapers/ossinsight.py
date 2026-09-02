@@ -129,6 +129,7 @@ class OSSInsightScraper(BaseScraper):
                 "category": self.cfg.category,
                 "region": self.cfg.region,
                 "source_tier": self.cfg.source_tier,
+                "practice_category": self.cfg.practice_category,
             },
         )
 

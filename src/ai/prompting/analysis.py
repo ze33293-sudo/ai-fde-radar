@@ -11,6 +11,28 @@ ANALYSIS_RULES = f"""You are a content curator evaluating an item under the supp
 {EVIDENCE_RULES}
 - Apply the profile's evaluation policy consistently."""
 
+PRACTICE_PROFILE_IDS = {"ai-product-fde", "tech-news"}
+
+
+def _analysis_contract(profile: LoadedProfile) -> str:
+    if profile.id not in PRACTICE_PROFILE_IDS:
+        return """{
+  "score": <number from 0 to 10>,
+  "reason": "<concise explanation>",
+  "summary": "<one-sentence summary>",
+  "tags": ["<tag>", "..."]
+}"""
+    return """{
+  "score": <number from 0 to 10>,
+  "reason": "<concise explanation using the configured scoring weights>",
+  "summary": "<one-sentence source-grounded summary>",
+  "tags": ["<tag>", "..."],
+  "practice_category": "<today-use|enterprise-case|method-pitfall|beginner-tech|china-career|hands-on>",
+  "actionable_within_7_days": <true or false>,
+  "action": "<one concrete 15-30 minute action, or empty when false>",
+  "project_relevance": "<specific link to an after-sales ticket Agent, AI PM/FDE portfolio, or job search>"
+}"""
+
 
 def analysis_system_prompt(profile: LoadedProfile) -> str:
     return f"""{ANALYSIS_RULES}
@@ -22,12 +44,7 @@ def analysis_system_prompt(profile: LoadedProfile) -> str:
 # Output contract
 
 Return valid JSON only:
-{{
-  "score": <number from 0 to 10>,
-  "reason": "<concise explanation>",
-  "summary": "<one-sentence summary>",
-  "tags": ["<tag>", "..."]
-}}"""
+{_analysis_contract(profile)}"""
 
 
 def analysis_user_prompt(
@@ -41,5 +58,8 @@ Title: {item.title}
 Source: {item.source_type.value}
 Author: {item.author or "Unknown"}
 URL: {item.url}
+Published at: {item.published_at.isoformat()}
+Region: {item.metadata.get("region", "global")}
+Suggested practice category: {item.metadata.get("practice_category") or "none"}
 {content_section}
 {discussion_section}"""

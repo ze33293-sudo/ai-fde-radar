@@ -142,5 +142,6 @@ class HackerNewsScraper(BaseScraper):
                 "category": self.config.get("category"),
                 "region": self.config.get("region", "global"),
                 "source_tier": self.config.get("source_tier", 3),
+                "practice_category": self.config.get("practice_category"),
             }
         )

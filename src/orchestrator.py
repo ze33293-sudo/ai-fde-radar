@@ -122,6 +122,7 @@ class BalancedDigestResult:
     profile_counts: Dict[str, int] = field(default_factory=dict)
     region_counts: Dict[str, int] = field(default_factory=dict)
     matrix_counts: Dict[str, int] = field(default_factory=dict)
+    practice_counts: Dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -134,6 +135,7 @@ class FilteringPipelineResult:
     topic_dedup_removed: int
     balanced_digest: BalancedDigestResult
     eligible_count: Optional[int] = None
+    reserve_items: List[ContentItem] = field(default_factory=list)
 
 
 @dataclass
@@ -346,9 +348,25 @@ class HorizonOrchestrator:
             )
             important_items = filtering_result.items
 
-            # Full text is fetched only for the final digest. Media-index entries
-            # without a usable original article are dropped instead of guessed.
+            # Fetch full text for the selected digest first. If indexed articles
+            # cannot be opened, hydrate a small quality reserve and rebalance so
+            # transient paywalls/403s do not unnecessarily shrink the edition.
             important_items = await self.hydrate_selected_items(important_items)
+            target_size = self.config.digest.max_items or len(important_items)
+            if (
+                len(important_items) < target_size
+                and filtering_result.reserve_items
+                and self.config.digest.fulltext_reserve > 0
+            ):
+                reserve_items = await self.hydrate_selected_items(
+                    filtering_result.reserve_items[
+                        : self.config.digest.fulltext_reserve
+                    ]
+                )
+                important_items = self.apply_balanced_digest(
+                    important_items + reserve_items,
+                    log=False,
+                ).items
             self._annotate_digest_depth(important_items)
 
             # Show per-sub-source selection breakdown
@@ -537,19 +555,28 @@ class HorizonOrchestrator:
             key=self._candidate_priority
         )
         limit = self.config.collection.candidate_limit
-        matrix_budgets = self._candidate_matrix_budgets(limit)
-        if not matrix_budgets:
+        practice_budgets = self._candidate_practice_budgets(limit)
+        matrix_budgets = (
+            {} if practice_budgets else self._candidate_matrix_budgets(limit)
+        )
+        quota_budgets = practice_budgets or matrix_budgets
+        quota_matcher = (
+            self._candidate_matches_practice
+            if practice_budgets
+            else self._candidate_matches_matrix
+        )
+        if not quota_budgets:
             limited = eligible[:limit]
         else:
             limited = []
             selected_ids: set[str] = set()
 
-            for matrix_key, budget in matrix_budgets.items():
+            for quota_key, budget in quota_budgets.items():
                 cell_candidates = [
                     item
                     for item in eligible
                     if item.id not in selected_ids
-                    and self._candidate_matches_matrix(item, matrix_key)
+                    and quota_matcher(item, quota_key)
                 ]
                 # Four distinct sources per full cell is a soft diversity goal.
                 # A second pass below relaxes it when the open-web supply is thin.
@@ -592,17 +619,18 @@ class HorizonOrchestrator:
                 f"{self.icons['filter']} Rule prefilter retained {len(limited)}/"
                 f"{len(items)} candidates for model scoring\n"
             )
-        if matrix_budgets:
-            matrix_counts: Dict[str, int] = defaultdict(int)
+        if quota_budgets:
+            quota_counts: Dict[str, int] = defaultdict(int)
             for item in limited:
-                for matrix_key in matrix_budgets:
-                    if self._candidate_matches_matrix(item, matrix_key):
-                        matrix_counts[matrix_key] += 1
+                for quota_key in quota_budgets:
+                    if quota_matcher(item, quota_key):
+                        quota_counts[quota_key] += 1
                         break
-            for matrix_key, budget in matrix_budgets.items():
+            quota_label = "practice" if practice_budgets else "candidate"
+            for quota_key, budget in quota_budgets.items():
                 self.console.print(
-                    f"      {self.icons['detail']} candidate {matrix_key}: "
-                    f"{matrix_counts.get(matrix_key, 0)}/{budget}"
+                    f"      {self.icons['detail']} {quota_label} {quota_key}: "
+                    f"{quota_counts.get(quota_key, 0)}/{budget}"
                 )
             self.console.print("")
         return limited
@@ -637,6 +665,31 @@ class HorizonOrchestrator:
             budgets[key] += 1
         return budgets
 
+    def _candidate_practice_budgets(self, limit: int) -> Dict[str, int]:
+        """Scale practical content-pillar targets to the scoring budget."""
+        targets = {
+            key: target
+            for key, target in self.config.digest.practice_targets.items()
+            if target > 0
+        }
+        total = sum(targets.values())
+        if not targets or total <= 0:
+            return {}
+
+        exact = {key: limit * target / total for key, target in targets.items()}
+        budgets = {key: math.floor(value) for key, value in exact.items()}
+        remainder = limit - sum(budgets.values())
+        order = {key: index for index, key in enumerate(targets)}
+        for key in sorted(
+            targets,
+            key=lambda candidate: (
+                -(exact[candidate] - budgets[candidate]),
+                order[candidate],
+            ),
+        )[:remainder]:
+            budgets[key] += 1
+        return budgets
+
     def _candidate_profiles(self, item: ContentItem) -> set[str]:
         requested = item.profile
         if isinstance(requested, list):
@@ -653,6 +706,10 @@ class HorizonOrchestrator:
         region, _, profile = matrix_key.partition("/")
         item_region = str(item.metadata.get("region") or "global")
         return item_region == region and profile in self._candidate_profiles(item)
+
+    @staticmethod
+    def _candidate_matches_practice(item: ContentItem, category: str) -> bool:
+        return item.metadata.get("practice_category") == category
 
     @staticmethod
     def _candidate_source_key(item: ContentItem) -> str:
@@ -749,6 +806,7 @@ class HorizonOrchestrator:
 
         profile_counts: Dict[str, int] = defaultdict(int)
         region_counts: Dict[str, int] = defaultdict(int)
+        practice_counts: Dict[str, int] = defaultdict(int)
         for item in selected_items:
             profile = (
                 item.processing.classification.profile
@@ -757,6 +815,9 @@ class HorizonOrchestrator:
             )
             profile_counts[profile] += 1
             region_counts[str(item.metadata.get("region") or "global")] += 1
+            practice_counts[
+                str(item.metadata.get("practice_category") or "unclassified")
+            ] += 1
 
         input_rate = self.config.metrics.input_cost_per_million_usd
         output_rate = self.config.metrics.output_cost_per_million_usd
@@ -795,6 +856,7 @@ class HorizonOrchestrator:
             "selection": {
                 "profiles": dict(profile_counts),
                 "regions": dict(region_counts),
+                "practice_categories": dict(practice_counts),
                 "deep_items": min(
                     len(selected_items), self.config.digest.deep_items
                 ),
@@ -1266,6 +1328,10 @@ class HorizonOrchestrator:
             reverse=True,
         )
         balanced = self.apply_balanced_digest(eligible, log=log)
+        selected_ids = {item.id for item in balanced.items}
+        reserve_items = [
+            item for item in eligible if item.id not in selected_ids
+        ][: self.config.digest.fulltext_reserve]
         return FilteringPipelineResult(
             items=balanced.items,
             threshold_count=initial.threshold_count,
@@ -1273,6 +1339,7 @@ class HorizonOrchestrator:
             topic_dedup_removed=initial.topic_dedup_removed,
             balanced_digest=balanced,
             eligible_count=len(eligible),
+            reserve_items=reserve_items,
         )
 
     def passes_profile_filter(
@@ -1308,7 +1375,12 @@ class HorizonOrchestrator:
         groups = digest.category_groups
         max_items = digest.max_items
 
-        if digest.matrix_targets or digest.profile_targets or digest.region_targets:
+        if (
+            digest.practice_targets
+            or digest.matrix_targets
+            or digest.profile_targets
+            or digest.region_targets
+        ):
             return self._apply_targeted_digest(items, log=log)
 
         if not groups and max_items is None:
@@ -1417,11 +1489,12 @@ class HorizonOrchestrator:
         *,
         log: bool = True,
     ) -> BalancedDigestResult:
-        """Fill region/profile matrix targets, then backfill by score.
+        """Fill practice or legacy targets, then backfill with quality items.
 
-        Items reach this stage only after profile-specific quality thresholds and
-        topic deduplication. Therefore the final backfill never introduces a
-        below-threshold item merely to reach the maximum count.
+        Practice-pillar quotas are the strongest constraint when configured.
+        Every candidate has already passed the profile threshold, so backfill
+        cannot introduce low-quality filler. Source and category caps keep one
+        vendor or raw-paper feed from dominating the result.
         """
         digest = self.config.digest
         sorted_items = sorted(
@@ -1441,54 +1514,114 @@ class HorizonOrchestrator:
         matrix_counts: Dict[str, int] = defaultdict(int)
         profile_counts: Dict[str, int] = defaultdict(int)
         region_counts: Dict[str, int] = defaultdict(int)
+        practice_counts: Dict[str, int] = defaultdict(int)
+        source_counts: Dict[str, int] = defaultdict(int)
+        product_source_counts: Dict[str, int] = defaultdict(int)
+        group_counts: Dict[str, int] = defaultdict(int)
 
-        def dimensions(item: ContentItem) -> tuple[str, str, str]:
+        category_to_group: Dict[str, str] = {}
+        for group_key, group in digest.category_groups.items():
+            for category in group.categories:
+                category_to_group.setdefault(category, group_key)
+
+        def dimensions(item: ContentItem) -> tuple[str, str, str, str]:
             region = str(item.metadata.get("region") or "global")
             profile = (
                 item.processing.classification.profile
                 if item.processing
                 else self.profiles.default_profile
             )
-            return region, profile, f"{region}/{profile}"
+            analysis = item.processing.analysis if item.processing else None
+            practice = (
+                analysis.practice_category
+                if analysis and analysis.practice_category
+                else str(item.metadata.get("practice_category") or "unclassified")
+            )
+            return region, profile, f"{region}/{profile}", practice
+
+        def source_key(item: ContentItem) -> str:
+            hostname = (urlsplit(str(item.url)).hostname or "unknown").casefold()
+            return hostname.removeprefix("www.")
+
+        def group_key(item: ContentItem) -> Optional[str]:
+            category = item.metadata.get("category")
+            return category_to_group.get(category) if isinstance(category, str) else None
+
+        def can_add(item: ContentItem) -> bool:
+            _, _, _, practice = dimensions(item)
+            key = source_key(item)
+            if (
+                digest.max_items_per_source is not None
+                and source_counts[key] >= digest.max_items_per_source
+            ):
+                return False
+            if (
+                practice == "today-use"
+                and digest.max_today_use_per_source is not None
+                and product_source_counts[key] >= digest.max_today_use_per_source
+            ):
+                return False
+            item_group = group_key(item)
+            if item_group is not None:
+                limit_for_group = digest.category_groups[item_group].limit
+                if group_counts[item_group] >= limit_for_group:
+                    return False
+            return True
 
         def add(item: ContentItem) -> None:
-            region, profile, matrix_key = dimensions(item)
+            region, profile, matrix_key, practice = dimensions(item)
+            key = source_key(item)
             selected.append(item)
             selected_ids.add(item.id)
             matrix_counts[matrix_key] += 1
             profile_counts[profile] += 1
             region_counts[region] += 1
+            practice_counts[practice] += 1
+            source_counts[key] += 1
+            if practice == "today-use":
+                product_source_counts[key] += 1
+            item_group = group_key(item)
+            if item_group is not None:
+                group_counts[item_group] += 1
+            item.metadata["practice_category"] = practice
 
-        # Exact matrix targets are the strongest constraint. Config order is
-        # irrelevant because candidates within every cell remain score-sorted.
-        if digest.matrix_targets:
+        if digest.practice_targets:
+            for practice, target in digest.practice_targets.items():
+                for item in sorted_items:
+                    if len(selected) >= limit or practice_counts[practice] >= target:
+                        break
+                    if item.id in selected_ids or not can_add(item):
+                        continue
+                    if dimensions(item)[3] == practice:
+                        add(item)
+        elif digest.matrix_targets:
             for item in sorted_items:
                 if len(selected) >= limit:
                     break
-                _, _, matrix_key = dimensions(item)
+                _, _, matrix_key, _ = dimensions(item)
                 target = digest.matrix_targets.get(matrix_key, 0)
-                if target and matrix_counts[matrix_key] < target:
+                if target and matrix_counts[matrix_key] < target and can_add(item):
                     add(item)
         else:
             # Backward-compatible independent targets when no matrix is supplied.
             for item in sorted_items:
                 if len(selected) >= limit:
                     break
-                region, profile, _ = dimensions(item)
+                region, profile, _, _ = dimensions(item)
                 needs_profile = profile_counts[profile] < digest.profile_targets.get(
                     profile, 0
                 )
                 needs_region = region_counts[region] < digest.region_targets.get(
                     region, 0
                 )
-                if needs_profile or needs_region:
+                if (needs_profile or needs_region) and can_add(item):
                     add(item)
 
         if digest.quality_fill and len(selected) < limit:
             for item in sorted_items:
                 if len(selected) >= limit:
                     break
-                if item.id not in selected_ids:
+                if item.id not in selected_ids and can_add(item):
                     add(item)
 
         for rank, item in enumerate(selected, start=1):
@@ -1505,6 +1638,11 @@ class HorizonOrchestrator:
                 f"{self.icons['balance']} Targeted digest selected "
                 f"{len(selected)}/{len(items)} items"
             )
+            for practice, target in digest.practice_targets.items():
+                self.console.print(
+                    f"      {self.icons['detail']} practice {practice}: "
+                    f"{practice_counts.get(practice, 0)}/{target}"
+                )
             for matrix_key, target in digest.matrix_targets.items():
                 self.console.print(
                     f"      {self.icons['detail']} {matrix_key}: "
@@ -1528,6 +1666,8 @@ class HorizonOrchestrator:
             profile_counts=dict(profile_counts),
             region_counts=dict(region_counts),
             matrix_counts=dict(matrix_counts),
+            practice_counts=dict(practice_counts),
+            group_counts=dict(group_counts),
         )
 
     async def _expand_twitter_discussion(self, items: List[ContentItem]) -> None:

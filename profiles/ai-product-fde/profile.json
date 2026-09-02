@@ -1,37 +1,19 @@
 {
   "id": "ai-product-fde",
-  "name": "AI Product & FDE",
+  "name": "AI Product & FDE Practice",
   "display_names": {
-    "zh": "AI 产品与 FDE"
+    "zh": "AI 产品与 FDE 实战"
   },
   "match": "match.md",
   "analysis": "analysis.md",
   "enrichment": {
     "prompt": "enrichment.md",
     "blocks": [
-      {
-        "id": "summary",
-        "type": "section",
-        "tools": [],
-        "primary": true
-      },
-      {
-        "id": "importance",
-        "type": "section",
-        "tools": ["web_search"]
-      },
-      {
-        "id": "fde_takeaway",
-        "type": "section",
-        "tools": [],
-        "primary": false
-      },
-      {
-        "id": "opportunity_risk",
-        "type": "section",
-        "tools": ["web_search"],
-        "optional": true
-      }
+      {"id": "summary", "type": "section", "tools": [], "primary": true},
+      {"id": "relevance", "type": "section", "tools": ["web_search"]},
+      {"id": "try_today", "type": "section", "tools": []},
+      {"id": "project_mapping", "type": "section", "tools": []},
+      {"id": "limitations", "type": "section", "tools": ["web_search"], "optional": true}
     ]
   }
 }

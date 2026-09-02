@@ -157,7 +157,10 @@ class ContentAnalyzer:
             user=user_prompt,
         )
 
-        result, failure = self._validate_analysis_response(response)
+        require_practice = profile.id in {"ai-product-fde", "tech-news"}
+        result, failure = self._validate_analysis_response(
+            response, require_practice=require_practice
+        )
         if result is None:
             repair_response = await self.client.complete(
                 system=analysis_system_prompt(profile),
@@ -168,7 +171,9 @@ class ContentAnalyzer:
                 ),
                 temperature=0,
             )
-            result, failure = self._validate_analysis_response(repair_response)
+            result, failure = self._validate_analysis_response(
+                repair_response, require_practice=require_practice
+            )
 
         if result is None:
             logger.warning(
@@ -184,13 +189,28 @@ class ContentAnalyzer:
                 )
             return
 
+        if require_practice:
+            self._apply_practice_gate(result)
+            item.metadata["practice_category"] = result.practice_category
+
         if item.processing:
             item.processing.analysis = result
+
+    @staticmethod
+    def _apply_practice_gate(result: ContentAnalysis) -> None:
+        """Enforce the relevance contract independently of model scoring."""
+        has_action = bool(result.action and result.action.strip())
+        if not result.actionable_within_7_days or not has_action:
+            result.score = min(result.score or 0, 6.5)
+            suffix = "No concrete action for the next seven days; score capped at 6.5."
+            result.reason = f"{result.reason.rstrip()} {suffix}".strip()
 
     @classmethod
     def _validate_analysis_response(
         cls,
         response: str,
+        *,
+        require_practice: bool = False,
     ) -> tuple[Optional[ContentAnalysis], str]:
         parsed = cls._parse_json_response(response)
         if not isinstance(parsed, dict):
@@ -203,4 +223,11 @@ class ContentAnalyzer:
             return None, f"invalid field {location or '<root>'}: {first_error['type']}"
         if result.score is None:
             return None, "score is required by the analysis contract"
+        if require_practice:
+            if result.practice_category is None:
+                return None, "practice_category is required for the practice radar"
+            if result.actionable_within_7_days is None:
+                return None, "actionable_within_7_days is required for the practice radar"
+            if not (result.project_relevance or "").strip():
+                return None, "project_relevance is required for the practice radar"
         return result, ""

@@ -115,6 +115,7 @@ class RedditScraper(BaseScraper):
             cfg.profile,
             cfg.region,
             cfg.source_tier,
+            cfg.practice_category,
         )
 
     async def _fetch_subreddit_rss(
@@ -172,6 +173,7 @@ class RedditScraper(BaseScraper):
                         "category": cfg.category,
                         "region": cfg.region,
                         "source_tier": cfg.source_tier,
+                        "practice_category": cfg.practice_category,
                     },
                 )
             )
@@ -213,6 +215,7 @@ class RedditScraper(BaseScraper):
             cfg.profile,
             cfg.region,
             cfg.source_tier,
+            cfg.practice_category,
         )
 
     def _parse_old_reddit_posts(
@@ -330,6 +333,7 @@ class RedditScraper(BaseScraper):
             profile=cfg.profile,
             region=cfg.region,
             source_tier=cfg.source_tier,
+            practice_category=cfg.practice_category,
         )
 
     async def _process_posts(
@@ -343,6 +347,7 @@ class RedditScraper(BaseScraper):
         profile: ProfileRoute = None,
         region: str = "global",
         source_tier: int = 3,
+        practice_category: Optional[str] = None,
     ) -> List[ContentItem]:
         valid_posts = []
         comment_tasks = []
@@ -381,6 +386,7 @@ class RedditScraper(BaseScraper):
                 profile,
                 region,
                 source_tier,
+                practice_category,
             )
             if item:
                 items.append(item)
@@ -491,6 +497,7 @@ class RedditScraper(BaseScraper):
         profile: ProfileRoute = None,
         region: str = "global",
         source_tier: int = 3,
+        practice_category: Optional[str] = None,
     ) -> Optional[ContentItem]:
         post_id = post["id"]
         title = post.get("title", "")
@@ -545,6 +552,7 @@ class RedditScraper(BaseScraper):
                 "category": category,
                 "region": region,
                 "source_tier": source_tier,
+                "practice_category": practice_category,
             },
         )
 

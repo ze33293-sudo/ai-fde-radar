@@ -49,13 +49,13 @@ def _pangu(text: str) -> str:
 
 LABELS = {
     "en": {
-        "header": "Horizon Daily · AI FDE Radar",
+        "header": "AI PM/FDE Daily Practice Radar",
         "source": "Source",
         "background": "Background",
         "discussion": "Discussion",
         "references": "References",
         "tags": "Tags",
-        "category": "Category",
+        "category": "Practice pillar",
         "region": "Region",
         "mode": "Depth",
         "progress": "Progress",
@@ -73,13 +73,13 @@ LABELS = {
         ),
     },
     "zh": {
-        "header": "Horizon 每日速递 · AI FDE Radar",
+        "header": "AI PM/FDE 每日实战雷达",
         "source": "来源",
         "background": "背景",
         "discussion": "社区讨论",
         "references": "参考链接",
         "tags": "标签",
-        "category": "分类",
+        "category": "栏目",
         "region": "地区",
         "mode": "解读模式",
         "progress": "进展",
@@ -90,6 +90,16 @@ LABELS = {
         ),
     },
 }
+
+PRACTICE_CATEGORY_NAMES = {
+    "today-use": {"en": "Use Today", "zh": "今天可以用"},
+    "enterprise-case": {"en": "Enterprise Cases", "zh": "企业落地案例"},
+    "method-pitfall": {"en": "Methods & Pitfalls", "zh": "产品方法与踩坑"},
+    "beginner-tech": {"en": "Beginner Tech", "zh": "小白技术翻译"},
+    "china-career": {"en": "China & Career", "zh": "中国与求职信号"},
+    "hands-on": {"en": "Hands-on Today", "zh": "今天动手做"},
+}
+PRACTICE_CATEGORY_ORDER = list(PRACTICE_CATEGORY_NAMES)
 
 
 @dataclass(frozen=True)
@@ -133,7 +143,18 @@ class DailySummarizer:
             return item.processing.classification.profile
         return item.profile if isinstance(item.profile, str) else "unclassified"
 
+    @classmethod
+    def _group_id(cls, item: ContentItem) -> str:
+        practice_category = item.metadata.get("practice_category")
+        if practice_category in PRACTICE_CATEGORY_NAMES:
+            return str(practice_category)
+        return cls._profile_id(item)
+
     def profile_name(self, profile_id: str, language: str) -> str:
+        if profile_id in PRACTICE_CATEGORY_NAMES:
+            return PRACTICE_CATEGORY_NAMES[profile_id].get(
+                language, PRACTICE_CATEGORY_NAMES[profile_id]["en"]
+            )
         names = self.profile_names.get(profile_id, {})
         return names.get(
             language,
@@ -150,10 +171,23 @@ class DailySummarizer:
     ) -> DailySummaryView:
         grouped_items: Dict[str, List[ContentItem]] = {}
         for item in items:
-            grouped_items.setdefault(self._profile_id(item), []).append(item)
+            grouped_items.setdefault(self._group_id(item), []).append(item)
 
         ordered_groups = list(grouped_items.items())
-        if self.profile_order:
+        if any(group_id in PRACTICE_CATEGORY_NAMES for group_id in grouped_items):
+            practice_order = {
+                group_id: index
+                for index, group_id in enumerate(PRACTICE_CATEGORY_ORDER)
+            }
+            ordered_groups = sorted(
+                ordered_groups,
+                key=lambda group: practice_order.get(
+                    group[0], len(practice_order) + self.profile_order.index(group[0])
+                    if group[0] in self.profile_order
+                    else len(practice_order) + len(self.profile_order)
+                ),
+            )
+        elif self.profile_order:
             order = {
                 profile_id: index
                 for index, profile_id in enumerate(self.profile_order)
@@ -431,7 +465,13 @@ class DailySummarizer:
             lines.extend(["", primary_content])
         lines.extend(["", source_line])
         region = "中国" if meta.get("region") == "china" and language == "zh" else meta.get("region", "global")
-        category = meta.get("category") or self._profile_id(item)
+        practice_category = meta.get("practice_category")
+        if practice_category in PRACTICE_CATEGORY_NAMES:
+            category = PRACTICE_CATEGORY_NAMES[str(practice_category)].get(
+                language, str(practice_category)
+            )
+        else:
+            category = meta.get("category") or self._profile_id(item)
         depth = meta.get("summary_depth") or "brief"
         lines.extend(
             [

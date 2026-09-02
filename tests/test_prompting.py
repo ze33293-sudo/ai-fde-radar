@@ -34,7 +34,7 @@ def test_tool_planning_excludes_profile_writing_policy():
     assert profile.enrichment_prompt in artifact
     assert profile.enrichment_prompt in block
     assert all(configured.id in planning for configured in blocks)
-    assert "Block `background` is required" in planning
+    assert "Block `relevance` is required" in planning
 
 
 def test_enrichment_context_uses_profile_content_budget():

@@ -151,6 +151,7 @@ class GDELTScraper(BaseScraper):
             "category": self.gdelt_config.category,
             "region": self.gdelt_config.region,
             "source_tier": self.gdelt_config.source_tier,
+            "practice_category": self.gdelt_config.practice_category,
         }
 
         try:

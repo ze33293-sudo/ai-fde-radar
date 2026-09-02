@@ -34,7 +34,8 @@
         "category": "agents-sdk",
         "profile": "ai-product-fde",
         "region": "global",
-        "source_tier": 1
+        "source_tier": 1,
+        "practice_category": "today-use"
       },
       {
         "type": "repo_releases",
@@ -43,7 +44,8 @@
         "category": "model-api",
         "profile": "ai-product-fde",
         "region": "global",
-        "source_tier": 1
+        "source_tier": 1,
+        "practice_category": "today-use"
       },
       {
         "type": "repo_releases",
@@ -52,7 +54,8 @@
         "category": "agents-sdk",
         "profile": "ai-product-fde",
         "region": "china",
-        "source_tier": 1
+        "source_tier": 1,
+        "practice_category": "china-career"
       },
       {
         "type": "repo_releases",
@@ -61,7 +64,8 @@
         "category": "foundation-model",
         "profile": "tech-news",
         "region": "china",
-        "source_tier": 1
+        "source_tier": 2,
+        "practice_category": "china-career"
       },
       {
         "type": "repo_releases",
@@ -70,7 +74,8 @@
         "category": "inference",
         "profile": "tech-news",
         "region": "global",
-        "source_tier": 1
+        "source_tier": 2,
+        "practice_category": "beginner-tech"
       },
       {
         "type": "repo_releases",
@@ -79,7 +84,8 @@
         "category": "inference",
         "profile": "tech-news",
         "region": "global",
-        "source_tier": 1
+        "source_tier": 2,
+        "practice_category": "beginner-tech"
       },
       {
         "type": "repo_releases",
@@ -88,7 +94,8 @@
         "category": "model-engineering",
         "profile": "tech-news",
         "region": "global",
-        "source_tier": 1
+        "source_tier": 2,
+        "practice_category": "beginner-tech"
       },
       {
         "type": "repo_releases",
@@ -97,7 +104,8 @@
         "category": "local-ai",
         "profile": "ai-product-fde",
         "region": "global",
-        "source_tier": 1
+        "source_tier": 1,
+        "practice_category": "today-use"
       },
       {
         "type": "repo_releases",
@@ -106,7 +114,8 @@
         "category": "inference",
         "profile": "tech-news",
         "region": "global",
-        "source_tier": 1
+        "source_tier": 2,
+        "practice_category": "beginner-tech"
       },
       {
         "type": "repo_releases",
@@ -115,7 +124,8 @@
         "category": "agent-engineering",
         "profile": "ai-product-fde",
         "region": "global",
-        "source_tier": 1
+        "source_tier": 1,
+        "practice_category": "hands-on"
       }
     ],
     "hackernews": {
@@ -125,7 +135,8 @@
       "category": "community-signal",
       "profile": ["ai-product-fde", "tech-news"],
       "region": "global",
-      "source_tier": 3
+      "source_tier": 3,
+      "practice_category": "method-pitfall"
     },
     "rss": [
       {
@@ -134,7 +145,8 @@
         "category": "official-product",
         "profile": ["ai-product-fde", "tech-news"],
         "region": "global",
-        "source_tier": 1
+        "source_tier": 1,
+        "practice_category": "today-use"
       },
       {
         "name": "Google Research",
@@ -142,7 +154,8 @@
         "category": "official-research",
         "profile": "tech-news",
         "region": "global",
-        "source_tier": 1
+        "source_tier": 2,
+        "practice_category": "beginner-tech"
       },
       {
         "name": "NVIDIA Deep Learning",
@@ -150,7 +163,8 @@
         "category": "ai-infrastructure",
         "profile": "tech-news",
         "region": "global",
-        "source_tier": 1
+        "source_tier": 2,
+        "practice_category": "beginner-tech"
       },
       {
         "name": "arXiv cs.AI",
@@ -158,15 +172,18 @@
         "category": "research-paper",
         "profile": "tech-news",
         "region": "global",
-        "source_tier": 1
+        "source_tier": 3,
+        "practice_category": "beginner-tech"
       },
       {
         "name": "arXiv cs.CL",
         "url": "https://rss.arxiv.org/rss/cs.CL",
+        "enabled": false,
         "category": "research-paper",
         "profile": "tech-news",
         "region": "global",
-        "source_tier": 1
+        "source_tier": 3,
+        "practice_category": "beginner-tech"
       },
       {
         "name": "Hugging Face Blog",
@@ -174,7 +191,8 @@
         "category": "open-source-ai",
         "profile": ["ai-product-fde", "tech-news"],
         "region": "global",
-        "source_tier": 2
+        "source_tier": 2,
+        "practice_category": "hands-on"
       },
       {
         "name": "Simon Willison",
@@ -182,7 +200,8 @@
         "category": "ai-engineering",
         "profile": ["ai-product-fde", "tech-news"],
         "region": "global",
-        "source_tier": 2
+        "source_tier": 2,
+        "practice_category": "method-pitfall"
       }
     ],
     "reddit": {
@@ -197,7 +216,8 @@
           "category": "community-research",
           "profile": "tech-news",
           "region": "global",
-          "source_tier": 3
+          "source_tier": 3,
+          "practice_category": "beginner-tech"
         },
         {
           "subreddit": "LocalLLaMA",
@@ -208,7 +228,8 @@
           "category": "community-engineering",
           "profile": ["ai-product-fde", "tech-news"],
           "region": "global",
-          "source_tier": 3
+          "source_tier": 3,
+          "practice_category": "hands-on"
         }
       ],
       "users": [],
@@ -228,141 +249,209 @@
       "category": "open-source-signal",
       "profile": ["ai-product-fde", "tech-news"],
       "region": "global",
-      "source_tier": 2
+      "source_tier": 2,
+      "practice_category": "hands-on"
     },
     "gdelt": {
       "enabled": true,
-      "query": "(artificial intelligence OR AI OR LLM) (model OR agent OR product OR research OR inference)",
+      "query": "(AI OR agent OR LLM) (customer support OR sales OR knowledge base OR workflow OR deployment OR case study) (metric OR evaluation OR rollout OR integration)",
       "max_records": 75,
       "timespan": "30h",
       "language": "english",
       "category": "global-media",
       "profile": ["ai-product-fde", "tech-news"],
       "region": "global",
-      "source_tier": 2
+      "source_tier": 2,
+      "practice_category": "enterprise-case"
     },
     "google_news": [
       {
         "enabled": true,
-        "query": "(OpenAI OR Anthropic OR Google OR Meta OR Microsoft OR NVIDIA OR artificial intelligence) (product OR launch OR API OR agent OR enterprise)",
+        "query": "(site:openai.com OR site:anthropic.com OR site:blog.google OR site:microsoft.com) (release OR available OR feature OR update) (ChatGPT OR Claude OR Gemini OR Copilot OR agent)",
         "language": "en",
         "country": "US",
-        "max_results": 60,
-        "category": "ai-product",
+        "max_results": 40,
+        "category": "official-product-update",
         "profile": "ai-product-fde",
         "region": "global",
-        "source_tier": 2
+        "source_tier": 1,
+        "practice_category": "today-use"
       },
       {
         "enabled": true,
-        "query": "(OpenAI OR Anthropic OR DeepMind OR Meta OR NVIDIA OR LLM) (research OR model OR benchmark OR inference OR open source)",
+        "query": "(AI OR agent OR copilot) (customer support OR sales OR knowledge management OR analytics OR office workflow) (case study OR deployment OR rollout OR adoption OR ROI)",
         "language": "en",
         "country": "US",
-        "max_results": 60,
-        "category": "ai-engineering",
+        "max_results": 50,
+        "category": "enterprise-workflow-case",
+        "profile": "ai-product-fde",
+        "region": "global",
+        "source_tier": 2,
+        "practice_category": "enterprise-case"
+      },
+      {
+        "enabled": true,
+        "query": "(AI agent OR LLM OR RAG) (evaluation OR postmortem OR failure OR reliability OR permissions OR human in the loop OR cost) (production OR workflow)",
+        "language": "en",
+        "country": "US",
+        "max_results": 50,
+        "category": "implementation-method",
+        "profile": ["ai-product-fde", "tech-news"],
+        "region": "global",
+        "source_tier": 2,
+        "practice_category": "method-pitfall"
+      },
+      {
+        "enabled": true,
+        "query": "(RAG OR MCP OR tool calling OR AI agent OR LLM evaluation) (guide OR tutorial OR explained OR example OR open source)",
+        "language": "en",
+        "country": "US",
+        "max_results": 40,
+        "category": "applied-ai-explainer",
         "profile": "tech-news",
         "region": "global",
-        "source_tier": 2
+        "source_tier": 2,
+        "practice_category": "beginner-tech"
       },
       {
         "enabled": true,
-        "query": "(DeepSeek OR é€šä¹‰åƒé—® OR äººå·¥æ™ºèƒ½ OR å¤§æ¨¡å‹) (äº§å“ OR å‘å¸ƒ OR æ™ºèƒ½ä½“ OR ä¼ä¸š OR æœºå™¨ä¹‹å¿ƒ OR é‡å­ä½ OR InfoQ OR 36æ°ª)",
-        "language": "zh-CN",
-        "country": "CN",
-        "ceid": "CN:zh-Hans",
-        "max_results": 60,
-        "category": "china-ai-product",
-        "profile": "ai-product-fde",
-        "region": "china",
-        "source_tier": 2
+        "query": "(AI agent OR RAG OR LLM evaluation) (hands-on OR tutorial OR template OR starter OR GitHub) (customer support OR workflow OR product manager)",
+        "language": "en",
+        "country": "US",
+        "max_results": 30,
+        "category": "hands-on-guide",
+        "profile": ["ai-product-fde", "tech-news"],
+        "region": "global",
+        "source_tier": 2,
+        "practice_category": "hands-on"
       },
       {
         "enabled": true,
-        "query": "(DeepSeek OR é€šä¹‰åƒé—® OR å¤§æ¨¡å‹) (æŠ€æœ¯ OR è®ºæ–‡ OR å¼€æº OR æ¨ç† OR è®­ç»ƒ OR è¯„æµ‹ OR æœºå™¨ä¹‹å¿ƒ OR é‡å­ä½ OR InfoQ)",
+        "query": "(äººå·¥æ™ºèƒ½ OR å¤§æ¨¡å‹ OR æ™ºèƒ½ä½“ OR AIäº§å“) (å®¢æœ OR é”€å”® OR çŸ¥è¯†åº“ OR æ•°æ®åˆ†æ OR åŠå…¬) (è½åœ° OR æ¡ˆä¾‹ OR å·¥ä½œæµ OR è¯„æµ‹ OR ROI)",
         "language": "zh-CN",
-        "country": "CN",
-        "ceid": "CN:zh-Hans",
-        "max_results": 60,
-        "category": "china-ai-engineering",
-        "profile": "tech-news",
-        "region": "china",
-        "source_tier": 2
-      }
-    ],
-    "hf_papers": {
-      "enabled": true,
-      "max_results": 50,
-      "sort": "publishedAt",
-      "category": "daily-papers",
-      "profile": "tech-news",
-      "region": "global",
-      "source_tier": 1
-    }
-  },
-  "collection": {
-    "time_window_hours": 30,
-    "candidate_limit": 60,
-    "history_days": 7,
-    "history_path": "data/state/seen_items.json",
-    "sent_marker_dir": "data/state/sent",
-    "fetch_fulltext": true
-  },
-  "digest": {
-    "max_items": 20,
-    "profile_order": ["ai-product-fde", "tech-news"],
-    "profile_targets": {
-      "ai-product-fde": 10,
-      "tech-news": 10
-    },
-    "region_targets": {
-      "global": 12,
-      "china": 8
-    },
-    "matrix_targets": {
-      "global/ai-product-fde": 6,
-      "global/tech-news": 6,
-      "china/ai-product-fde": 4,
-      "china/tech-news": 4
-    },
-    "quality_fill": true,
-    "deep_items": 5,
-    "brief_items": 15,
-    "category_groups": {},
-    "default_group": "other",
-    "default_group_limit": null
-  },
-  "metrics": {
-    "enabled": true,
-    "output_dir": "docs/metrics",
-    "input_cost_per_million_usd": 0.44,
-    "output_cost_per_million_usd": 1.32,
-    "pricing_note": "DeepSeek V4 Flash peak cache-miss rates checked 2026-09-02; conservative estimate because cache-hit usage is not separated."
-  },
-  "webhook": {
-    "enabled": true,
-    "url_env": "HORIZON_WEBHOOK_URL",
-    "delivery": "summary",
-    "overview_position": "first",
-    "platform": "feishu",
-    "layout": "collapsible",
-    "fallback_layout": "markdown",
-    "languages": ["zh"],
-    "request_body": {
-      "msg_type": "interactive",
-      "card": {
-        "schema": "2.0",
-        "config": {"wide_screen_mode": true},
-        "header": {
-          "title": {"tag": "plain_text", "content": "#{message_title}"},
-          "template": "blue"
-        },
-        "body": {
-          "elements": [
-            {"tag": "markdown", "content": "#{summary}"}
-          ]
-        }
-      }
-    },
-    "headers": ""
-  }
-}
+        "country"÷½wÖÚ$z{-®éÜj×U\KBŠCBƒBƒB™YˆÜ[—Ø\Ş[˜ÊÛÜ›ÊNƒBˆ™]\›ˆ\Ş[˜Ú[Ëœ[ŠÛÜ›ÊCBƒBƒB™YˆÛXZÙWÚ][JYˆ[
+HOˆÛÛ[][NƒBˆ][HHÛÛ[][JBˆYYˆœœÜÎš][K^ÚYH‹BˆÛİ\˜ÙWİ\OTÛİ\˜ÙU\K””ÔËBˆ]OYˆ’[\Ü[][HÚYH‹Bˆ\›YˆšÎ‹ËÙ^[\K˜ÛÛKÚ][\ËŞÚYH‹BˆÛÛ[H˜ÛÛ[‹Bˆ]]ÜH\İ\ˆ‹BˆX›\ÚYØ]Y]][YJŒ‹Kš[™›Ï][Y^›Û™K]ÊKBˆ›Ùš[OHXÚ[™]ÜÈ‹Bˆ›ØÙ\ÜÚ[™ÏT›ØÙ\ÜÚ[™Ô™\İ[
+BˆÛ\ÜÚYšXØ][ÛPÛ\ÜÚYšXØ][Û”™\İ[
+Bˆ›Ùš[OHXÚ[™]ÜÈ‹Y]ÙHœÛİ\˜ÙWÛİ™\œšYHƒBˆ
+KBˆ[˜[\Ú\ÏPÛÛ[[˜[\Ú\ÊBˆØÛÜ™ONŒBˆ™X\ÛÛH\İ‹Bˆİ[[X\OYˆ”İ[[X\H›Üˆ][HÚYKˆ‹BˆYÜÏVÈRH‹“™]ÜÈ—KBˆ
+KBˆ\Y˜XİÏ^ÃBˆ[™İXYÙNˆÛÛ[\Y˜Xİ
+Bˆ[™İXYÙO[[™İXYÙKBˆ]OYˆ’[\Ü[][HÚYH‹Bˆ›ØÚÜÏVÃBˆÛÛ[›ØÚÊBˆYHœİ[[X\H‹Bˆ]OH”İ[[X\H‹BˆÛÛ[Yˆ”İ[[X\H›Üˆ][HÚYKˆ‹Bˆš[X\OUYKBˆ
+CBˆKBˆ
+CBˆ›Üˆ[™İXYÙH[ˆ
+™[ˆ‹šŠCBˆKBˆ
+KBˆ
+CBˆ™]\›ˆ][CBƒBƒB™Yˆ\İÙÙ[™\˜]WİÙXšÛÚ×Ûİ™\šY]×Û\İ×Ú][\×İÚ]İ]Ù[Ù]Z[Ê
+NƒBˆİ[[X\š^™\ˆHZ[Tİ[[X\š^™\Š
+CBˆ][\ÈH×ÛXZÙWÚ][JJKÛXZÙWÚ][JŠWCBƒBˆ™\İ[Hİ[[X\š^™\‹™Ù[™\˜]WİÙXšÛÚ×Ûİ™\šY]ÊBˆ][\ËBˆ]OHŒŒ‹LLH‹Bˆİ[Ù™]ÚYLLBˆ[™İXYÙOH™[ˆ‹Bˆ
+CBƒBˆ\ÜÙ\”Ù[XİYˆ[\Ü[][\Èœ›ÛHL™]ÚY][\Èˆ[ˆ™\İ[Bˆ\ÜÙ\ŒKˆÒ[\Ü[][HWJÎ‹ËÙ^[\K˜ÛÛKÚ][\ËÌJHˆ[ˆ™\İ[Bˆ\ÜÙ\Œ‹ˆÒ[\Ü[][H—JÎ‹ËÙ^[\K˜ÛÛKÚ][\ËÌŠHˆ[ˆ™\İ[Bˆ\ÜÙ\”İ[[X\H›Üˆ][HKˆˆ›İ[ˆ™\İ[BƒBƒB™Yˆ\İÙÙ[™\˜]WİÙXšÛÚ×Ú][WÜ™[™\œ×ÜÚ[™ÛWÚ][WÙ]Z[
+
+NƒBˆİ[[X\š^™\ˆHZ[Tİ[[X\š^™\Š
+CBƒBˆ™\İ[Hİ[[X\š^™\‹™Ù[™\˜]WİÙXšÛÚ×Ú][JBˆÛXZÙWÚ][JJKBˆ[™İXYÙOH™[ˆ‹Bˆ[™^LKBˆİ[L‹Bˆ
+CBƒBˆ\ÜÙ\™\İ[œİ\İÚ]
+’][HKÌˆŠCBˆ\ÜÙ\ˆÈÈÒ[\Ü[][HWJÎ‹ËÙ^[\K˜ÛÛKÚ][\ËÌJHˆ[ˆ™\İ[Bˆ\ÜÙ\”İ[[X\H›Üˆ][HKˆˆ[ˆ™\İ[Bˆ\ÜÙ\ŠŠ•YÜÊŠˆĞRXÓ™]ÜØˆ[ˆ™\İ[BƒBƒB™Yˆ\İÙÙ[™\˜]WİÙXšÛÚ×Ú][WÚ[˜ÛY\×Ù\Øİ\ÜÚ[Û—Û[š×İÚ[—Ù\İ[˜İ
+
+NƒBˆİ[[X\š^™\ˆHZ[Tİ[[X\š^™\Š
+CBˆ][HHÛXZÙWÚ][JJCBˆ][K›Y]Y]VÈ™\Øİ\ÜÚ[Û—İ\›—HHšÎ‹ËÛ™]ÜËXÛÛXš[˜]Ü‹˜ÛÛKÚ][OÚYLHƒBƒBˆ™\İ[Hİ[[X\š^™\‹™Ù[™\˜]WİÙXšÛÚ×Ú][JBˆ][KBˆ[™İXYÙOH™[ˆ‹Bˆ[™^LKBˆİ[LKBˆ
+CBƒBˆ\ÜÙ\\İ\ˆ0­È\ˆKŒ0­ÈÑ\Øİ\ÜÚ[Û—JÎ‹ËÛ™]ÜËXÛÛXš[˜]Ü‹˜ÛÛKÚ][OÚYLJHˆ[ˆ™\İ[BƒBƒB™Yˆ\İÙÙ[™\˜]WİÙXšÛÚ×Ú][WÛÛZ]×Ù\Øİ\ÜÚ[Û—Û[š×İÚ[—ÜØ[YWØ\×Ú][Wİ\›
+
+NƒBˆİ[[X\š^™\ˆHZ[Tİ[[X\š^™\Š
+CBˆ][HHÛXZÙWÚ][JJCBˆ][K›Y]Y]VÈ™\Øİ\ÜÚ[Û—İ\›—HH][K\›BƒBˆ™\İ[Hİ[[X\š^™\‹™Ù[™\˜]WİÙXšÛÚ×Ú][JBˆ][KBˆ[™İXYÙOH™[ˆ‹Bˆ[™^LKBˆİ[LKBˆ
+CBƒBˆ\ÜÙ\–Ñ\Øİ\ÜÚ[Û—JÎ‹ËÙ^[\K˜ÛÛKÚ][\ËÌJHˆ›İ[ˆ™\İ[BƒBƒB™Yˆ\İÙÙ[™\˜]WİÙXšÛÚ×Ú][Wİ\Ù\×ÛØØ[^™YÙ\Øİ\ÜÚ[Û—ÛX™[
+
+NƒBˆİ[[X\š^™\ˆHZ[Tİ[[X\š^™\Š
+CBˆ][HHÛXZÙWÚ][JJCBˆ][K›Y]Y]VÈ™\Øİ\ÜÚ[Û—İ\›—HHšÎ‹ËİİİËœ™Y]˜ÛÛKÜ‹Ü]Û‹ØÛÛ[Y[ËØX˜ÌLŒËİ\İÈƒBƒBˆ™\İ[Hİ[[X\š^™\‹™Ù[™\˜]WİÙXšÛÚ×Ú][JBˆ][KBˆ[™İXYÙOHš‹Bˆ[™^LKBˆİ[LKBˆ
+CBƒBˆ\ÜÙ\–ùé/¹c.º+ª:+®—JÎ‹ËİİİËœ™Y]˜ÛÛKÜ‹Ü]Û‹ØÛÛ[Y[ËØX˜ÌLŒËİ\İÊHˆ[ˆ™\İ[BƒBƒB™Yˆ\İÙÙ[™\˜]WÜİ[[X\WŞšİ\Ù\×ÛØØ[^™YÜÙ[Xİ[Û—ÚXY\—Ø[™Û[Y\šX×Ù]J
+NƒBˆİ[[X\š^™\ˆHZ[Tİ[[X\š^™\Š
+CBˆ][HHÛXZÙWÚ][JJCBƒBˆ™\İ[HÜ[—Ø\Ş[˜ÊBˆİ[[X\š^™\‹™Ù[™\˜]WÜİ[[X\JBˆÚ][WKBˆ]OHŒŒ‹LLH‹Bˆİ[Ù™]ÚYLLBˆ[™İXYÙOHš‹Bˆ
+CBˆ
+CBƒBˆ\ÜÙ\ˆ9.ãˆL9§hya¡yk®y.+yëfú`"yaîˆH9§hzaãz) z-a:+«øà ˆˆ[ˆ™\İ[Bˆ\ÜÙ\œœÜÈ0­È\İ\ˆ0­È9§"y¥éHŒˆ[ˆ™\İ[Bˆ\ÜÙ\‘œ›ÛHL][\Èˆ›İ[ˆ™\İ[Bˆ\ÜÙ\\ˆKŒˆ›İ[ˆ™\İ[BƒBƒB™Yˆ\İÙÙ[™\˜]WÜİ[[X\WÙÜ›İ\×Ú][\×ØWÜ›Ùš[WİÚ]ÚXY[™×ÚY\˜\˜ÚJ
+NƒBˆ™]ÜÈHÛXZÙWÚ][JJCBˆ›ÙÈHÛXZÙWÚ][JŠCBˆ›ÙËœ›Ùš[HHXÚX›ÙÈƒBˆ›ÙËœ›ØÙ\ÜÚ[™Ë˜Û\ÜÚYšXØ][Û‹œ›Ùš[HHXÚX›ÙÈƒBˆİ[[X\š^™\ˆHZ[Tİ[[X\š^™\ŠBˆ›Ùš[WÛ˜[Y\Ï^ÃBˆXÚ[™]ÜÈˆÈ™Y˜][ˆ•XÚ›ÛÙŞH™]ÜÈ‹šˆ¹éäy¢ 9¥¬:eîÈŸKBˆXÚX›ÙÈˆÈ™Y˜][ˆ•XÚ›ÛÙŞH›ÙÈ‹šˆ¹éäy¢ 9cf¹k¨ˆŸKBˆCBˆ
+CBƒBˆ™\İ[HÜ[—Ø\Ş[˜ÊBˆİ[[X\š^™\‹™Ù[™\˜]WÜİ[[X\JBˆÛ™]ÜË›Ù×KBˆ]OHŒŒ‹LLH‹Bˆİ[Ù™]ÚYL‹Bˆ[™İXYÙOH™[ˆ‹Bˆ
+CBˆ
+CBƒBˆ\ÜÙ\™\İ[˜Ûİ[
+ˆÈRHKÑ‘HZ[H˜XİXÙH˜Y\ˆŠHOHBˆ\ÜÙ\ˆÈÈXÚ›ÛÙŞH™]ÜÈˆ[ˆ™\İ[Bˆ\ÜÙ\ˆÈÈXÚ›ÛÙŞH›ÙÈˆ[ˆ™\İ[Bˆ\ÜÙ\ˆÈÈÈÒ[\Ü[][HWHˆ[ˆ™\İ[Bˆ\ÜÙ\ˆÈÈÈÒ[\Ü[][H—Hˆ[ˆ™\İ[BƒBƒB™Yˆ\İÙÙ[™\˜]WÜİ[[X\Wİ\Ù\×ØÛÛ™šYİ\™YÜ›Ùš[WÛÜ™\Š
+NƒBˆš[˜[˜ÙHHÛXZÙWÚ][JJCBˆš[˜[˜ÙKœ›Ùš[HH™š[˜[˜ÙK[™]ÜÈƒBˆš[˜[˜ÙKœ›ØÙ\ÜÚ[™Ë˜Û\ÜÚYšXØ][Û‹œ›Ùš[HH™š[˜[˜ÙK[™]ÜÈƒBˆ›ÙÈHÛXZÙWÚ][JŠCBˆ›ÙËœ›Ùš[HHXÚX›ÙÈƒBˆ›ÙËœ›ØÙ\ÜÚ[™Ë˜Û\ÜÚYšXØ][Û‹œ›Ùš[HHXÚX›ÙÈƒBˆ™]ÜÈHÛXZÙWÚ][JÊCBˆİ[[X\š^™\ˆHZ[Tİ[[X\š^™\ŠBˆ›Ùš[WÛ˜[Y\Ï^ÃBˆXÚ[™]ÜÈˆÈ™Y˜][ˆ•XÚ›ÛÙŞH™]ÜÈŸKBˆXÚX›ÙÈˆÈ™Y˜][ˆ•XÚ›ÛÙŞH›ÙÈŸKBˆ™š[˜[˜ÙK[™]ÜÈˆÈ™Y˜][ˆ‘š[˜[˜ÚX[™]ÜÈŸKBˆKBˆ›Ùš[WÛÜ™\VÈXÚ[™]ÜÈ‹XÚX›ÙÈ‹™š[˜[˜ÙK[™]ÜÈ—KBˆ
+CBƒBˆ™\İ[HÜ[—Ø\Ş[˜ÊBˆİ[[X\š^™\‹™Ù[™\˜]WÜİ[[X\JBˆÙš[˜[˜ÙK›ÙË™]Ü×KBˆ]OHŒŒ‹LLH‹Bˆİ[Ù™]ÚYLËBˆ[™İXYÙOH™[ˆ‹Bˆ
+CBˆ
+CBƒBˆ\ÜÙ\™\İ[š[™^
+ˆÈÈXÚ›ÛÙŞH™]ÜÈŠH™\İ[š[™^
+ˆÈÈXÚ›ÛÙŞH›ÙÈŠCBˆ\ÜÙ\™\İ[š[™^
+ˆÈÈXÚ›ÛÙŞH›ÙÈŠH™\İ[š[™^
+ˆÈÈš[˜[˜ÚX[™]ÜÈŠCBƒBƒB™Yˆ\İÙÙ[™\˜]WÜİ[[X\WÜ™[™\œ×Üš[X\WØ›ØÚ×Ø™Y›Ü™WÜÛİ\˜ÙWİÚ]İ]ÚXY[™Ê
+NƒBˆ][HHÛXZÙWÚ][JJCBˆ][Kœ›ØÙ\ÜÚ[™Ë˜\Y˜XİÖÈ™[ˆ—HHÛÛ[\Y˜Xİ
+Bˆ[™İXYÙOH™[ˆ‹Bˆ]OH’[\Ü[][HH‹Bˆ›ØÚÜÏVÃBˆÛÛ[›ØÚÊBˆYHœİ[[X\H‹Bˆ]OH”İ[[X\H‹BˆÛÛ[H”š[X\H^[˜][Û‹ˆ‹Bˆš[X\OUYKBˆ
+KBˆÛÛ[›ØÚÊBˆYH˜˜XÚÙÜ›İ[™‹Bˆ]OH˜XÚÙÜ›İ[™‹BˆÛÛ[H”İ\Ü[™ÈÛÛ^ˆ‹Bˆ
+KBˆKBˆ
+CBƒBˆ™\İ[HÜ[—Ø\Ş[˜ÊBˆZ[Tİ[[X\š^™\Š
+K™Ù[™\˜]WÜİ[[X\JBˆÚ][WKBˆ]OHŒŒ‹LLH‹Bˆİ[Ù™]ÚYLKBˆ[™İXYÙOH™[ˆ‹Bˆ
+CBˆ
+CBƒBˆ\ÜÙ\ˆÈÈÈÈİ[[X\Hˆ›İ[ˆ™\İ[Bˆ\ÜÙ\™\İ[š[™^
+”š[X\H^[˜][Û‹ˆŠH™\İ[š[™^
+BˆœœÜÈ0­È\İ\ˆ0­È\ˆKŒƒBˆ
+CBˆ\ÜÙ\™\İ[š[™^
+œœÜÈ0­È\İ\ˆ0­È\ˆKŒŠH™\İ[š[™^
+BˆŠŠ¸à#˜XÚÙÜ›İ[™8à#JŠˆİ\Ü[™ÈÛÛ^ˆƒBˆ
+CBƒBƒB™Yˆ\İÙÙ[™\˜]WÜİ[[X\WÜ™[™\œ×Û›Û—Üš[X\WØ›Ù×ÜÙXİ[Ûœ×ØY\—ÜÛİ\˜ÙJ
+NƒBˆ][HHÛXZÙWÚ][JJCBˆ][Kœ›Ùš[HHXÚX›ÙÈƒBˆ][Kœ›ØÙ\ÜÚ[™Ë˜Û\ÜÚYšXØ][Û‹œ›Ùš[HHXÚX›ÙÈƒBˆ][Kœ›ØÙ\ÜÚ[™Ë˜\Y˜XİÖÈ™[ˆ—HHÛÛ[\Y˜Xİ
+Bˆ[™İXYÙOH™[ˆ‹Bˆ]OHHXÚšXØ[\XÛH‹Bˆ›ØÚÜÏVÃBˆÛÛ[›ØÚÊBˆYH˜˜XÚÙÜ›İ[™‹Bˆ]OH˜XÚÙÜ›İ[™‹BˆÛÛ[H•HÜšYÚ[˜[ÛÛœİ˜Z[Ëˆ‹Bˆ
+KBˆÛÛ[›ØÚÊBˆYHœÛÛ][Ûˆ‹Bˆ]OH”ÛÛ][Ûˆ‹BˆÛÛ[H•H[\[Y[][Ûˆ[™]šY[˜ÙKˆ‹Bˆ
+KBˆÛÛ[›ØÚÊBˆYHZÙX]Ø^H‹Bˆ]OH•ZÙX]Ø^H‹BˆÛÛ[H•H\˜X›H\ÜÛÛ‹ˆ‹Bˆ
+KBˆKBˆ
+CBƒBˆ™\İ[HÜ[—Ø\Ş[˜ÊBˆZ[Tİ[[X\š^™\Š
+K™Ù[™\˜]WÜİ[[X\JBˆÚ][WKBˆ]OHŒŒ‹LLH‹Bˆİ[Ù™]ÚYLKBˆ[™İXYÙOH™[ˆ‹Bˆ
+CBˆ
+CBƒBˆÛİ\˜ÙWÚ[™^H™\İ[š[™^
+œœÜÈ0­È\İ\ˆ0­È\ˆKŒŠCBˆÛÛ^Ú[™^H™\İ[š[™^
+ŠŠ¸à#˜XÚÙÜ›İ[™8à#JŠˆHÜšYÚ[˜[ÛÛœİ˜Z[ËˆŠCBˆÛÛ][Û—Ú[™^H™\İ[š[™^
+ŠŠ¸à#ÛÛ][Û¸à#JŠˆH[\[Y[][Ûˆ[™]šY[˜ÙKˆŠCBˆZÙX]Ø^WÚ[™^H™\İ[š[™^
+ŠŠ¸à#ZÙX]Ø^xà#JŠˆH\˜X›H\ÜÛÛ‹ˆŠCBˆ\ÜÙ\Ûİ\˜ÙWÚ[™^ÛÛ^Ú[™^ÛÛ][Û—Ú[™^ZÙX]Ø^WÚ[™^Bˆ\ÜÙ\ˆÈÈÈÈ˜XÚÙÜ›İ[™ˆ›İ[ˆ™\İ[BƒBƒB™Yˆ\İÙÙ[™\˜]WİÙXšÛÚ×Ú][WÛ›Ü›X[^™\×Ù^\İ[™×ŞšØ\Y˜Xİİ×ÜÚ[\YšYY
+
+NƒBˆ][HHÛXZÙWÚ][JJCBˆ][Kœ›ØÙ\ÜÚ[™Ë˜\Y˜XİÖÈš—HHÛÛ[\Y˜Xİ
+Bˆ[™İXYÙOHš‹Bˆ]OH¹.èùä!¹méy/g9­`y¦í9¥¬‹Bˆ›ØÚÜÏVÃBˆÛÛ[›ØÚÊBˆYH˜˜XÚÙÜ›İ[™‹Bˆ]OHº ã9¦kÈ‹BˆÛÛ[H¹é/¹ï©:eç9¬ê:`&zh!y¦í9¥¬;ï#9.)¹b!¹.ªùkéºf¦ùå*:aãù¥n9¤æ¸à ˆ‹Bˆ
+CBˆKBˆ
+CBƒBˆ™\İ[HZ[Tİ[[X\š^™\Š
+K™Ù[™\˜]WİÙXšÛÚ×Ú][JBˆ][KBˆ[™İXYÙOHš‹Bˆ[™^LKBˆİ[LKBˆ
+CBƒBˆ\ÜÙ\¹.èùä!¹méy/g9­`y¦í9¥¬ˆ[ˆ™\İ[Bˆ\ÜÙ\ŠŠ¸à#: ã9¦køà#JŠˆ9é/¹ï©9alù¬ê:/æzhny¦í9¥¬;ï#9nm¹b!¹.ªùk§ºfayå*:aãù¥l9£k¸à ˆˆ[ˆ™\İ[Bˆ\ÜÙ\ºeç9¬êˆ›İ[ˆ™\İ[BƒBƒB™Yˆ\İÙÙ[™\˜]WÜİ[[X\WÜ™[[X™\œ×Ú[\›X]™YÜ›Ùš[\×Ø[™ÛØØ[^™\×ÚXY[™ÜÊ
+NƒBˆš\œİÛ™]ÜÈHÛXZÙWÚ][JJCBˆ›ÙÈHÛXZÙWÚ][JŠCBˆÙXÛÛ™Û™]ÜÈHÛXZÙWÚ][JÊCBˆ›ÙËœ›Ùš[HHXÚX›ÙÈƒBˆ›ÙËœ›ØÙ\ÜÚ[™Ë˜Û\ÜÚYšXØ][Û‹œ›Ùš[HHXÚX›ÙÈƒBˆİ[[X\š^™\ˆHZ[Tİ[[X\š^™\ŠBˆ›Ùš[WÛ˜[Y\Ï^ÃBˆXÚ[™]ÜÈˆÈ™Y˜][ˆ•XÚ›ÛÙŞH™]ÜÈ‹šˆ¹éäy¢ 9¥¬:eîÈŸKBˆXÚX›ÙÈˆÈ™Y˜][ˆ•XÚ›ÛÙŞH›ÙÈ‹šˆ¹éäy¢ 9cf¹k¨ˆŸKBˆCBˆ
+CBƒBˆ™\İ[HÜ[—Ø\Ş[˜ÊBˆİ[[X\š^™\‹™Ù[™\˜]WÜİ[[X\JBˆÙš\œİÛ™]ÜË›ÙËÙXÛÛ™Û™]Ü×KBˆ]OHŒŒ‹LLH‹Bˆİ[Ù™]ÚYLËBˆ[™İXYÙOHš‹Bˆ
+CBˆ
+CBƒBˆ\ÜÙ\ˆÈÈ9éäy¢ 9¥¬:eîÈˆ[ˆ™\İ[Bˆ\ÜÙ\ˆÈÈ9éäy¢ 9cf¹k¨ˆˆ[ˆ™\İ[Bˆ\ÜÙ\ŒKˆÒ[\Ü[][HWJÚ][K]XÚ[™]ÜËLJHˆ[ˆ™\İ[Bˆ\ÜÙ\Œ‹ˆÒ[\Ü[][H×JÚ][K]XÚ[™]ÜËLŠHˆ[ˆ™\İ[Bˆ\ÜÙ\ŒKˆÒ[\Ü[][H—JÚ][K]XÚX›ÙËLJHˆ[ˆ™\İ[Bˆ\ÜÙ\™\İ[š[™^
+Œ‹ˆÒ[\Ü[][H×HŠH™\İ[š[™^
+ŒKˆÒ[\Ü[][H—HŠCBˆ\ÜÙ\	ÏHYHš][K]XÚ[™]ÜËLHØO‰È[ˆ™\İ[Bˆ\ÜÙ\	ÏHYHš][K]XÚX›ÙËLHØO‰È[ˆ™\İ[BƒBƒB™Yˆ\İÙÙ[™\˜]WÙ[\WÜİ[[X\WŞšİ\Ù\×ÛØØ[^™YØ[˜[^™YÛ[™J
+NƒBˆİ[[X\š^™\ˆHZ[Tİ[[X\š^™\Š
+CBƒBˆ™\İ[HÜ[—Ø\Ş[˜ÊBˆİ[[X\š^™\‹™Ù[™\˜]WÜİ[[X\JBˆ×KBˆ]OHŒŒ‹LLH‹Bˆİ[Ù™]ÚYLLBˆ[™İXYÙOHš‹Bˆ
+CBˆ
+CBƒBˆ\ÜÙ\ˆ9mì¹b!¹§¤L9§hya¡yk®{ï#9/a¹¬¨y§"z/¯¹b,:aãz) y )úf"9`/9æ¡9§hyæë¸à ˆˆ[ˆ™\İ[Bˆ\ÜÙ\[˜[^™YL][\Èˆ›İ[ˆ™\İ[BƒBƒB™Yˆ\İÙÙ[™\˜]WÜİ[[X\WÙ\ØØ\\×İ[\İYİ^Ú[—Ø[Ûİ]]ØÛÛ^Ê
+NƒBˆİ[[X\š^™\ˆHZ[Tİ[[X\š^™\Š
+CBˆ][HHÛXZÙWÚ][JJCBˆ][K]HH	ÏØÜš\˜[\
+]HŠOÜØÜš\ˆØÛXÚ×J˜]˜\ØÜš\˜[\
+JJIÃBˆ][Kœ›ØÙ\ÜÚ[™Ë˜[˜[\Ú\Ëœİ[[X\HH	Ï[YÈÜ˜Ï^Û™\œ›ÜH˜[\
+JHˆ
+Šœİ[[X\JŠ‰ÃBˆ][K˜]]ÜˆH	Ïİ™ÈÛ›ØYH˜[\
+JH‰ÃBˆ][Kœ›ØÙ\ÜÚ[™Ë˜[˜[\Ú\ËYÜÈHÉİYØJ˜]˜\ØÜš\˜[\
+JJI×CBˆ][Kœ›ØÙ\ÜÚ[™Ë˜\Y˜XİÖÈ™[ˆ—HHÛÛ[\Y˜Xİ
+Bˆ[™İXYÙOH™[ˆ‹Bˆ]OZ][K]KBˆ›ØÚÜÏVÃBˆÛÛ[›ØÚÊBˆYHœİ[[X\H‹Bˆ]OH”İ[[X\H‹BˆÛÛ[IÏ[YÈÜ˜Ï^Û™\œ›ÜH˜[\
+JHˆ
+Šœİ[[X\JŠ‰ËBˆš[X\OUYKBˆ
+KBˆÛÛ[›ØÚÊBˆYH˜˜XÚÙÜ›İ[™‹Bˆ]OH˜XÚÙÜ›İ[™‹BˆÛÛ[IÏYœ˜[YHÜ˜ÏH™]N^Ú[˜YÚYœ˜[YO‰ËBˆ
+KBˆÛÛ[›ØÚÊBˆYH˜ÛÛ[][š]WÙ\Øİ\ÜÚ[Ûˆ‹Bˆ]OH‘\Øİ\ÜÚ[Ûˆ‹BˆÛÛ[H–Ø˜YJ]N^Ú[˜Y
+H‹Bˆ
+KBˆKBˆÛİ\˜Ù\ÏVÃBˆ\Y˜XİÛİ\˜ÙJBˆYHœ™Y‹LH‹Bˆ]OIÏ[YÈÜ˜Ï^Û™\œ›ÜH˜[\
+JH‰ËBˆ\›HšÎ‹ËÙ^[\K˜ÛÛKÜ™Yˆ‹Bˆ
+CBˆKBˆ
+CBˆ][K›Y]Y]K\]JBˆÃBˆ™™YYÛ˜[YHˆ	ÏˆÛ˜ÛXÚÏH˜[\
+JH™™YYØ‰ËBˆCBˆ
+CBƒBˆ™\İ[HÜ[—Ø\Ş[˜Êİ[[X\š^™\‹™Ù[™\˜]WÜİ[[X\JÚ][WKŒŒ‹LLH‹JJCBƒBˆ\ÜÙ\ØÜš\ˆˆ›İ[ˆ™\İ[Bˆ\ÜÙ\[YÈÜ˜Ï^ˆ›İ[ˆ™\İ[Bˆ\ÜÙ\Yœ˜[YHˆ›İ[ˆ™\İ[Bˆ\ÜÙ\ˆÛ˜ÛXÚÈˆ›İ[ˆ™\İ[Bˆ\ÜÙ\—J˜]˜\ØÜš\ˆˆ›İ[ˆ™\İ[Bˆ\ÜÙ\—J]N^Ú[ˆ›İ[ˆ™\İ[Bˆ\ÜÙ\‰›ÜØÜš\	™İÈˆ[ˆ™\İ[Bˆ\ÜÙ\‰›Ú[YÈÜ˜Ï^Û™\œ›ÜIœ][İØ[\
+JIœ][İÉ™İÈˆ[ˆ™\İ[BƒBƒB™Yˆ\İÙÙ[™\˜]WÜİ[[X\WÜ™Z™Xİ×İ[œØY™Wİ\›×Ø[™Ü][İWÚ[š™Xİ[ÛŠ
+NƒBˆİ[[X\š^™\ˆHZ[Tİ[[X\š^™\Š
+CBˆ][HHÛXZÙWÚ][JJCBˆ][K›Y]Y]VÈ™\Øİ\ÜÚ[Û—İ\›—HH	Ú˜]˜\ØÜš\˜[\
+™\Øİ\ÜÚ[ÛˆŠIÃBˆ][Kœ›ØÙ\ÜÚ[™Ë˜\Y˜XİÖÈ™[ˆ—KœÛİ\˜Ù\ÈHÃBˆ\Y˜XİÛİ\˜ÙJBˆYHœ][İY‹Bˆ]OIÔ][İYØÜš\˜[\
+JOÜØÜš\‰ËBˆ\›IÚÎ‹ËÙ^[\K˜ÛÛK×ˆÛ›[İ\Ù[İ™\W˜[\
+JIËBˆ
+KBˆ\Y˜XİÛİ\˜ÙJYHšœÈ‹]OH’˜]˜TØÜš\‹\›Hš˜]˜\ØÜš\˜[\
+JHŠKBˆ\Y˜XİÛİ\˜ÙJBˆYH™]H‹Bˆ]OH‘]H‹Bˆ\›H™]N^Ú[ØÜš\˜[\
+JOÜØÜš\ˆ‹Bˆ
+KBˆCBƒBˆ™\İ[HÜ[—Ø\Ş[˜Êİ[[X\š^™\‹™Ù[™\˜]WÜİ[[X\JÚ][WKŒŒ‹LLH‹JJCBƒBˆ\ÜÙ\	Ú™YHšÎ‹ËÙ^[\K˜ÛÛKÉLŒ‰LŒÛ›[İ\Ù[İ™\ILŒ˜[\	LILH‰È[ˆ™\İ[Bˆ\ÜÙ\	ÏO’˜]˜TØÜš\ÛO‰È[ˆ™\İ[Bˆ\ÜÙ\	ÏO‘]OÛO‰È[ˆ™\İ[Bˆ\ÜÙ\	Ú™YHš˜]˜\ØÜš\‰È›İ[ˆ™\İ[Bˆ\ÜÙ\	Ú™YH™]N‰È›İ[ˆ™\İ[Bˆ\ÜÙ\	ÏØÜš\‰È›İ[ˆ™\İ[BƒBƒB™Yˆ\İÙÙ[™\˜]WÜİ[[X\WÜ™\Ù\™\×Û›Ü›X[ÚÛ[šÜÊ
+NƒBˆİ[[X\š^™\ˆHZ[Tİ[[X\š^™\Š
+CBˆ][HHÛXZÙWÚ][JJCBˆ][K›Y]Y]VÈ™\Øİ\ÜÚ[Û—İ\›—HHšÎ‹ËÙ^[\K˜ÛÛKÙ\Øİ\ÜÏÚYLHØÛÛ[Y[ÈƒBˆ][Kœ›ØÙ\ÜÚ[™Ë˜\Y˜XİÖÈ™[ˆ—KœÛİ\˜Ù\ÈHÃBˆ\Y˜XİÛİ\˜ÙJBˆYH\ÙY[‹Bˆ]OH•\ÙY[™Y™\™[˜ÙH‹Bˆ\›HšÎ‹ËÙØÜË™^[\K˜ÛÛKÜ]ÜO[Û™I›[™ÏY[ˆ‹Bˆ
+CBˆCBƒBˆ™\İ[HÜ[—Ø\Ş[˜Êİ[[X\š^™\‹™Ù[™\˜]WÜİ[[X\JÚ][WKŒŒ‹LLH‹JJCBƒBˆ\ÜÙ\–Ò[\Ü[][HWJÎ‹ËÙ^[\K˜ÛÛKÚ][\ËÌJHˆ[ˆ™\İ[Bˆ\ÜÙ\–Ñ\Øİ\ÜÚ[Û—JÎ‹ËÙ^[\K˜ÛÛKÙ\Øİ\ÜÏÚYLHØÛÛ[Y[ÊHˆ[ˆ™\İ[Bˆ\ÜÙ\	Ú™YHšÎ‹ËÙØÜË™^[\K˜ÛÛKÜ]ÜO[Û™I˜[\Û[™ÏY[ˆ‰È[ˆ™\İ[B

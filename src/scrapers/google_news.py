@@ -179,6 +179,7 @@ class GoogleNewsScraper(BaseScraper):
                 "category": self.gn_config.category,
                 "region": self.gn_config.region,
                 "source_tier": self.gn_config.source_tier,
+                "practice_category": self.gn_config.practice_category,
                 "original_url_resolved": (
                     self._is_original_url(link)
                     if original_url_resolved is None

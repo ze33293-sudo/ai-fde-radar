@@ -127,6 +127,7 @@ class RSSScraper(BaseScraper):
                         "tags": [tag.term for tag in entry.get("tags", [])],
                         "region": source.region,
                         "source_tier": source.source_tier,
+                        "practice_category": source.practice_category,
                     },
                 )
                 items.append(item)

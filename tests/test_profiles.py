@@ -21,17 +21,17 @@ def test_loads_builtin_profiles():
         assert profile.analysis_prompt
         assert profile.enrichment_prompt
 
-    tech_impact = next(
+    tech_limitations = next(
         block
         for block in registry.get("tech-news").definition.enrichment.blocks
-        if block.id == "impact"
+        if block.id == "limitations"
     )
     finance_impact = next(
         block
         for block in registry.get("finance-news").definition.enrichment.blocks
         if block.id == "impact"
     )
-    assert tech_impact.optional is True
+    assert tech_limitations.optional is True
     assert finance_impact.optional is True
 
 

@@ -101,6 +101,7 @@ class HuggingFacePapersScraper(BaseScraper):
                 "category": self.hf_config.category,
                 "region": self.hf_config.region,
                 "source_tier": self.hf_config.source_tier,
+                "practice_category": self.hf_config.practice_category,
                 "source_name": "Hugging Face Daily Papers",
             },
         )

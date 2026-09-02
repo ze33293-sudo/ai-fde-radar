@@ -1,37 +1,19 @@
 {
   "id": "tech-news",
-  "name": "Technology News",
+  "name": "Beginner Applied AI",
   "display_names": {
-    "zh": "科技新闻"
+    "zh": "小白技术翻译"
   },
   "match": "match.md",
   "analysis": "analysis.md",
   "enrichment": {
     "prompt": "enrichment.md",
     "blocks": [
-      {
-        "id": "summary",
-        "type": "section",
-        "tools": [],
-        "primary": true
-      },
-      {
-        "id": "background",
-        "type": "section",
-        "tools": ["web_search"]
-      },
-      {
-        "id": "impact",
-        "type": "section",
-        "tools": ["web_search"],
-        "optional": true
-      },
-      {
-        "id": "community_discussion",
-        "type": "section",
-        "tools": [],
-        "optional": true
-      }
+      {"id": "summary", "type": "section", "tools": [], "primary": true},
+      {"id": "relevance", "type": "section", "tools": ["web_search"]},
+      {"id": "try_today", "type": "section", "tools": []},
+      {"id": "project_mapping", "type": "section", "tools": []},
+      {"id": "limitations", "type": "section", "tools": ["web_search"], "optional": true}
     ]
   }
 }

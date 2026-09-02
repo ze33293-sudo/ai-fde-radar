@@ -172,6 +172,7 @@ Author: {item.author or "Unknown"}
 Published at: {item.published_at.isoformat()}
 Region: {item.metadata.get("region", "global")}
 Digest rank: {item.metadata.get("digest_rank", "unranked")}
+Practice category: {item.metadata.get("practice_category", "unclassified")}
 Editorial mode: {depth}
 Chinese length target: {length_target}
 Analysis summary: {analysis.summary if analysis else ""}
@@ -181,6 +182,10 @@ Tags: {', '.join(analysis.tags) if analysis else ""}
 # Editorial contract
 
 {editorial_contract}
+Write for a beginner AI product manager/FDE who is building an enterprise
+after-sales ticket Agent and preparing a practical portfolio. Explain unavoidable
+jargon inline. Include a specific 15-30 minute action the reader can take today
+and connect it to the ticket Agent, product work, or job search.
 Clearly label source-grounded facts separately from analysis or inference. Never
 invent details when the original article cannot support them.
 

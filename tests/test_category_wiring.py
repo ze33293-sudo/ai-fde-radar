@@ -86,12 +86,17 @@ def _github_event(event_type: str = "PushEvent") -> dict:
 
 def test_github_parse_event_category_in_metadata():
     source = GitHubSourceConfig(
-        type="user_events", username="alice", category="oss", profile="github-profile"
+        type="user_events",
+        username="alice",
+        category="oss",
+        profile="github-profile",
+        practice_category="hands-on",
     )
     scraper = GitHubScraper([source], AsyncMock())
     item = scraper._parse_event(_github_event(), source)
     assert item is not None
     assert item.metadata["category"] == "oss"
+    assert item.metadata["practice_category"] == "hands-on"
     assert item.profile == "github-profile"
 
 

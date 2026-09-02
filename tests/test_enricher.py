@@ -52,7 +52,7 @@ class FakeTools:
     names = {"web_search"}
 
     async def execute(self, request_id, block_id, tool, arguments):
-        assert block_id == "background"
+        assert block_id == "relevance"
         assert tool == "web_search"
         assert arguments == {"query": "project architecture"}
         return ToolResult(
@@ -76,7 +76,7 @@ def test_enrichment_generates_blocks_and_validated_sources():
                 {
                     "tool_requests": [
                         {
-                            "block_id": "background",
+                            "block_id": "relevance",
                             "tool": "web_search",
                             "arguments": {"query": "project architecture"},
                             "purpose": "Explain the existing architecture",
@@ -109,10 +109,17 @@ def test_enrichment_generates_blocks_and_validated_sources():
                             "source_refs": [],
                         },
                         {
-                            "id": "background",
+                            "id": "try_today",
                             "type": "section",
-                            "title": "未隔离的背景",
-                            "content": "这个版本应被丢弃。",
+                            "title": "今天怎么试",
+                            "content": "用十条工单检查新版架构。",
+                            "source_refs": [],
+                        },
+                        {
+                            "id": "project_mapping",
+                            "type": "section",
+                            "title": "项目映射",
+                            "content": "把结果写入售后工单 Agent 评测记录。",
                             "source_refs": [],
                         },
                     ],
@@ -122,9 +129,9 @@ def test_enrichment_generates_blocks_and_validated_sources():
                 {
                     "title": "",
                     "block": {
-                        "id": "background",
+                        "id": "relevance",
                         "type": "section",
-                        "title": "背景",
+                        "title": "为什么与你有关",
                         "content": "旧架构的背景信息。",
                         "source_refs": ["tool-1"],
                     },
@@ -152,12 +159,14 @@ def test_enrichment_generates_blocks_and_validated_sources():
     assert artifact.blocks[0].content == "项目发布了新的架构，它改变了系统设计，并采用了新的边界。"
     assert [block.id for block in artifact.blocks] == [
         "summary",
-        "background",
+        "relevance",
+        "try_today",
+        "project_mapping",
     ]
-    assert artifact.blocks[-1].title == "背景"
+    assert artifact.blocks[1].title == "为什么与你有关"
     assert artifact.blocks[0].primary is True
     assert artifact.blocks[1].primary is False
-    assert artifact.blocks[-1].source_refs == ["tool-1-1"]
+    assert artifact.blocks[1].source_refs == ["tool-1-1"]
     assert artifact.sources[0].url == "https://docs.example.com/project"
     assert len(requests) == 4
     assert "explicitly mentioned in the item" in requests[0]["system"]
@@ -226,10 +235,24 @@ def test_enrichment_repairs_malformed_tool_plan_once():
                             "source_refs": [],
                         },
                         {
-                            "id": "background",
+                            "id": "relevance",
                             "type": "section",
-                            "title": "Background",
-                            "content": "Context for the release.",
+                            "title": "Why it matters",
+                            "content": "It changes an applied product decision.",
+                            "source_refs": [],
+                        },
+                        {
+                            "id": "try_today",
+                            "type": "section",
+                            "title": "Try today",
+                            "content": "Run ten golden ticket cases.",
+                            "source_refs": [],
+                        },
+                        {
+                            "id": "project_mapping",
+                            "type": "section",
+                            "title": "Project mapping",
+                            "content": "Add the results to the ticket Agent portfolio.",
                             "source_refs": [],
                         }
                     ],
@@ -469,7 +492,7 @@ def test_enrichment_rejects_cross_block_source_reference():
     )
     tool_result = ToolResult(
         request_id="tool-1",
-        block_id="background",
+        block_id="relevance",
         tool="web_search",
         results=[
             {

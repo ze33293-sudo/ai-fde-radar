@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -294,6 +295,7 @@ def test_metrics_are_secret_free_and_include_distribution(tmp_path: Path) -> Non
     payload = json.loads((tmp_path / "latest.json").read_text(encoding="utf-8"))
     assert payload["pipeline"]["fetched"] == 120
     assert payload["selection"]["regions"] == {"global": 1, "china": 1}
+    assert payload["selection"]["practice_categories"] == {"unclassified": 2}
     assert "DEEPSEEK_API_KEY" not in json.dumps(payload)
 
 
@@ -308,8 +310,105 @@ def test_feishu_webhook_token_is_redacted_from_log_url() -> None:
 def test_github_config_has_expected_sources_and_targets() -> None:
     path = Path(__file__).resolve().parents[1] / "data" / "config.github.json"
     payload = Config.model_validate(json.loads(path.read_text(encoding="utf-8")))
-    assert len(payload.sources.google_news_queries()) == 4
+    assert len(payload.sources.google_news_queries()) == 8
     assert payload.collection.time_window_hours == 30
     assert payload.collection.candidate_limit == 60
     assert payload.digest.max_items == 20
-    assert sum(payload.digest.matrix_targets.values()) == 20
+    assert sum(payload.digest.practice_targets.values()) == 20
+    assert payload.digest.practice_targets == {
+        "today-use": 5,
+        "enterprise-case": 5,
+        "method-pitfall": 4,
+        "beginner-tech": 3,
+        "china-career": 2,
+        "hands-on": 1,
+    }
+    assert payload.digest.category_groups["raw-papers"].limit == 1
+
+
+def test_practice_targets_select_each_beginner_pillar_and_limit_raw_papers() -> None:
+    radar_config = config(
+        profile_targets={},
+        region_targets={},
+        matrix_targets={},
+        practice_targets={
+            "today-use": 2,
+            "enterprise-case": 2,
+            "method-pitfall": 1,
+            "beginner-tech": 1,
+            "china-career": 1,
+            "hands-on": 1,
+        },
+        max_items=8,
+        max_today_use_per_source=2,
+        category_groups={
+            "raw-papers": {
+                "limit": 1,
+                "categories": ["research-paper", "daily-papers"],
+            }
+        },
+    )
+    orchestrator = HorizonOrchestrator(radar_config, SimpleNamespace())
+    categories = [
+        "today-use",
+        "today-use",
+        "enterprise-case",
+        "enterprise-case",
+        "method-pitfall",
+        "beginner-tech",
+        "china-career",
+        "hands-on",
+    ]
+    candidates = []
+    for index, practice_category in enumerate(categories):
+        candidate = item(index, "china" if practice_category == "china-career" else "global", "ai-product-fde", 9 - index / 10)
+        candidate.processing.analysis.practice_category = practice_category  # type: ignore[union-attr]
+        candidate.metadata["practice_category"] = practice_category
+        candidates.append(candidate)
+
+    extra_paper = item(99, "global", "tech-news", 9.9)
+    extra_paper.processing.analysis.practice_category = "beginner-tech"  # type: ignore[union-attr]
+    extra_paper.metadata.update(
+        {"practice_category": "beginner-tech", "category": "research-paper"}
+    )
+    candidates[5].metadata["category"] = "daily-papers"
+
+    result = orchestrator.apply_balanced_digest([extra_paper, *candidates], log=False)
+
+    assert len(result.items) == 8
+    assert result.practice_counts == {
+        "today-use": 2,
+        "enterprise-case": 2,
+        "method-pitfall": 1,
+        "beginner-tech": 1,
+        "china-career": 1,
+        "hands-on": 1,
+    }
+    assert sum(
+        entry.metadata.get("category") in {"research-paper", "daily-papers"}
+        for entry in result.items
+    ) == 1
+
+
+def test_selection_keeps_quality_reserve_for_fulltext_failures() -> None:
+    radar_config = config(
+        profile_targets={},
+        region_targets={},
+        matrix_targets={},
+        practice_targets={"today-use": 2},
+        max_items=2,
+        fulltext_reserve=2,
+        max_today_use_per_source=2,
+    )
+    orchestrator = HorizonOrchestrator(radar_config, SimpleNamespace())
+    candidates = [item(index, "global", "ai-product-fde", 9 - index / 10) for index in range(4)]
+    for candidate in candidates:
+        candidate.processing.analysis.practice_category = "today-use"  # type: ignore[union-attr]
+        candidate.metadata["practice_category"] = "today-use"
+
+    result = asyncio.run(
+        orchestrator.select_digest_items(candidates, topic_dedup=False, log=False)
+    )
+
+    assert [entry.id for entry in result.items] == ["item-0", "item-1"]
+    assert [entry.id for entry in result.reserve_items] == ["item-2", "item-3"]

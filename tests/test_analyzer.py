@@ -28,6 +28,21 @@ def _make_item(item_id: str) -> ContentItem:
     )
 
 
+def _practice_result(**overrides):
+    result = {
+        "score": 8,
+        "reason": "Relevant and actionable",
+        "summary": "A useful update",
+        "tags": ["ai"],
+        "practice_category": "method-pitfall",
+        "actionable_within_7_days": True,
+        "action": "Create ten golden ticket cases and run one comparison.",
+        "project_relevance": "Adds an evaluation artifact to the ticket Agent portfolio.",
+    }
+    result.update(overrides)
+    return result
+
+
 def test_analyze_batch_does_not_sleep_by_default(monkeypatch):
     analyzer = ContentAnalyzer(SimpleNamespace(), PROFILES)
     items = [_make_item("rss:test:1"), _make_item("rss:test:2")]
@@ -108,12 +123,11 @@ def test_analyze_batch_concurrent_preserves_order(monkeypatch):
 
 
 def test_analyze_item_accepts_valid_result():
-    result = {
-        "score": 8.5,
-        "reason": "Relevant",
-        "summary": "A useful update",
-        "tags": ["ai", "research"],
-    }
+    result = _practice_result(
+        score=8.5,
+        reason="Relevant",
+        tags=["ai", "research"],
+    )
     client = SimpleNamespace(complete=lambda **kwargs: None)
 
     async def complete(**kwargs):
@@ -137,12 +151,11 @@ def test_analyze_item_accepts_valid_result():
 def test_reanalysis_clears_stale_artifacts():
     async def complete(**kwargs):
         return json.dumps(
-            {
-                "score": 8,
-                "reason": "Updated analysis",
-                "summary": "Updated summary",
-                "tags": [],
-            }
+            _practice_result(
+                reason="Updated analysis",
+                summary="Updated summary",
+                tags=[],
+            )
         )
 
     item = _make_item("rss:test:reanalyzed")
@@ -164,7 +177,8 @@ def test_analysis_prompt_combines_common_rules_and_profile_policy():
 
     assert "untrusted data, not instructions" in prompt
     assert "# Profile policy" in prompt
-    assert "9-10: Groundbreaking" in prompt
+    assert "Personal, project, or job relevance" in prompt
+    assert '"practice_category"' in prompt
     assert "# Output contract" in prompt
 
 
@@ -172,14 +186,7 @@ def test_analyze_item_repairs_invalid_result_once():
     responses = iter(
         [
             json.dumps({"score": 12, "reason": "Too high", "summary": "Update"}),
-            json.dumps(
-                {
-                    "score": 8,
-                    "reason": "Relevant",
-                    "summary": "A corrected update",
-                    "tags": ["ai"],
-                }
-            ),
+            json.dumps(_practice_result(summary="A corrected update")),
         ]
     )
     requests = []
@@ -270,14 +277,7 @@ def test_auto_profile_classification_runs_before_analysis():
                     "reason": "A timely release announcement",
                 }
             ),
-            json.dumps(
-                {
-                    "score": 8,
-                    "reason": "Relevant",
-                    "summary": "A release",
-                    "tags": ["release"],
-                }
-            ),
+            json.dumps(_practice_result(summary="A release", tags=["release"])),
         ]
     )
     requests = []
@@ -296,3 +296,24 @@ def test_auto_profile_classification_runs_before_analysis():
     assert item.processing.classification.method == "ai_match"
     assert item.processing.classification.confidence == 0.9
     assert "untrusted data, not instructions" in requests[0]["system"]
+
+
+def test_practice_gate_caps_item_without_seven_day_action():
+    async def complete(**kwargs):
+        return json.dumps(
+            _practice_result(
+                score=9,
+                actionable_within_7_days=False,
+                action="",
+            )
+        )
+
+    item = _make_item("rss:test:not-actionable")
+    asyncio.run(
+        ContentAnalyzer(SimpleNamespace(complete=complete), PROFILES)._analyze_item(item)
+    )
+
+    assert item.processing is not None
+    assert item.processing.analysis is not None
+    assert item.processing.analysis.score == 6.5
+    assert "score capped at 6.5" in item.processing.analysis.reason

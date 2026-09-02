@@ -47,6 +47,14 @@ SOURCE_REGISTRY = {
 
 ProfileRoute = Optional[Union[str, List[str]]]
 SourceRegion = Literal["global", "china"]
+PracticeCategory = Literal[
+    "today-use",
+    "enterprise-case",
+    "method-pitfall",
+    "beginner-tech",
+    "china-career",
+    "hands-on",
+]
 
 
 class ClassificationResult(BaseModel):
@@ -65,6 +73,10 @@ class ContentAnalysis(BaseModel):
     reason: str
     summary: str
     tags: List[str] = Field(default_factory=list)
+    practice_category: Optional[PracticeCategory] = None
+    actionable_within_7_days: Optional[bool] = None
+    action: Optional[str] = None
+    project_relevance: Optional[str] = None
 
 
 class ArtifactSource(BaseModel):
@@ -228,6 +240,7 @@ class GitHubSourceConfig(BaseModel):
     profile: ProfileRoute = None
     region: SourceRegion = "global"
     source_tier: int = Field(default=1, ge=1, le=3)
+    practice_category: Optional[PracticeCategory] = None
 
 
 class HackerNewsConfig(BaseModel):
@@ -240,6 +253,7 @@ class HackerNewsConfig(BaseModel):
     profile: ProfileRoute = None
     region: SourceRegion = "global"
     source_tier: int = Field(default=3, ge=1, le=3)
+    practice_category: Optional[PracticeCategory] = None
 
 
 class ExtractorType(str, Enum):
@@ -269,6 +283,7 @@ class RSSSourceConfig(BaseModel):
     profile: ProfileRoute = None
     region: SourceRegion = "global"
     source_tier: int = Field(default=2, ge=1, le=3)
+    practice_category: Optional[PracticeCategory] = None
 
 
 class RedditSubredditConfig(BaseModel):
@@ -286,6 +301,7 @@ class RedditSubredditConfig(BaseModel):
     profile: ProfileRoute = None
     region: SourceRegion = "global"
     source_tier: int = Field(default=3, ge=1, le=3)
+    practice_category: Optional[PracticeCategory] = None
 
 
 class RedditUserConfig(BaseModel):
@@ -299,6 +315,7 @@ class RedditUserConfig(BaseModel):
     profile: ProfileRoute = None
     region: SourceRegion = "global"
     source_tier: int = Field(default=3, ge=1, le=3)
+    practice_category: Optional[PracticeCategory] = None
 
 
 class RedditConfig(BaseModel):
@@ -410,6 +427,7 @@ class OSSInsightConfig(BaseModel):
     profile: ProfileRoute = None
     region: SourceRegion = "global"
     source_tier: int = Field(default=2, ge=1, le=3)
+    practice_category: Optional[PracticeCategory] = None
 
 
 class GDELTConfig(BaseModel):
@@ -433,6 +451,7 @@ class GDELTConfig(BaseModel):
     profile: ProfileRoute = None
     region: SourceRegion = "global"
     source_tier: int = Field(default=2, ge=1, le=3)
+    practice_category: Optional[PracticeCategory] = None
 
 
 class GoogleNewsConfig(BaseModel):
@@ -453,6 +472,7 @@ class GoogleNewsConfig(BaseModel):
     profile: ProfileRoute = None
     region: SourceRegion = "global"
     source_tier: int = Field(default=2, ge=1, le=3)
+    practice_category: Optional[PracticeCategory] = None
 
 
 class HuggingFacePapersConfig(BaseModel):
@@ -465,6 +485,7 @@ class HuggingFacePapersConfig(BaseModel):
     profile: ProfileRoute = "tech-news"
     region: SourceRegion = "global"
     source_tier: int = Field(default=1, ge=1, le=3)
+    practice_category: Optional[PracticeCategory] = None
 
 
 class SourcesConfig(BaseModel):
@@ -642,9 +663,13 @@ class DigestConfig(BaseModel):
     profile_targets: Dict[str, int] = Field(default_factory=dict)
     region_targets: Dict[SourceRegion, int] = Field(default_factory=dict)
     matrix_targets: Dict[str, int] = Field(default_factory=dict)
+    practice_targets: Dict[PracticeCategory, int] = Field(default_factory=dict)
     quality_fill: bool = True
     deep_items: int = Field(default=5, ge=0)
     brief_items: int = Field(default=15, ge=0)
+    fulltext_reserve: int = Field(default=5, ge=0)
+    max_items_per_source: Optional[int] = Field(default=None, gt=0)
+    max_today_use_per_source: Optional[int] = Field(default=1, gt=0)
 
     @field_validator("profile_order")
     @classmethod
@@ -655,7 +680,7 @@ class DigestConfig(BaseModel):
             raise ValueError("digest.profile_order entries must be unique")
         return value
 
-    @field_validator("profile_targets", "matrix_targets")
+    @field_validator("profile_targets", "matrix_targets", "practice_targets")
     @classmethod
     def validate_positive_targets(cls, value: Dict[str, int]) -> Dict[str, int]:
         if any(not key.strip() for key in value):
