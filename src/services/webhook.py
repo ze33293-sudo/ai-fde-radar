@@ -850,7 +850,7 @@ class WebhookNotifier:
             result = None
             for attempt in range(2):
                 result = await self.notify(message)
-                if not isinstance(result, WebhookDeliveryResult) or result.success:
+                if not isinstance(result, WebhookDeliveryResult) or result.sent:
                     break
                 if attempt == 0:
                     self.console.print(
@@ -859,7 +859,7 @@ class WebhookNotifier:
                     await asyncio.sleep(2)
             if result is not None:
                 results.append(result)
-            if isinstance(result, WebhookDeliveryResult) and not result.success:
+            if isinstance(result, WebhookDeliveryResult) and not result.sent:
                 raise RuntimeError(
                     "Webhook delivery failed: "
                     f"{result.status.value}"
