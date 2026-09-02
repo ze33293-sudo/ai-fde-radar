@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 
@@ -181,3 +182,58 @@ def test_max_results_cap() -> None:
     items = asyncio.run(scraper.fetch(_now() - timedelta(days=365)))
 
     assert len(items) == 2
+
+
+def test_resolves_google_news_article_with_batched_decoder() -> None:
+    link = "https://news.google.com/rss/articles/encoded-id?oc=5"
+    config = GoogleNewsConfig(
+        enabled=True,
+        query="大模型",
+        language="zh-CN",
+        country="CN",
+        ceid="CN:zh-Hans",
+        region="china",
+        profile="ai-product-fde",
+    )
+    client = AsyncMock()
+    scraper = GoogleNewsScraper(config, client)
+
+    parameter_response = MagicMock()
+    parameter_response.text = (
+        '<c-wiz><div data-n-a-sg="signature" data-n-a-ts="123456"></div></c-wiz>'
+    )
+    parameter_response.raise_for_status.return_value = None
+    decoded_payload = json.dumps(["garturlres", "https://publisher.example/story"])
+    decoder_response = MagicMock()
+    decoder_response.text = ")]}'\n\n" + json.dumps(
+        [["wrb.fr", "Fbv4je", decoded_payload]]
+    )
+    decoder_response.raise_for_status.return_value = None
+
+    with patch(
+        "src.scrapers.google_news.safe_request",
+        new=AsyncMock(side_effect=[parameter_response, decoder_response]),
+    ) as request:
+        resolved = asyncio.run(scraper._resolve_original_urls([link]))
+
+    assert resolved == ["https://publisher.example/story"]
+    assert request.await_count == 2
+    post_call = request.await_args_list[1]
+    assert post_call.args[1:] == ("POST", scraper.DECODER_URL)
+    assert "Fbv4je" in post_call.kwargs["data"]["f.req"]
+
+
+def test_decoder_response_preserves_failed_rpc_positions() -> None:
+    good = json.dumps(["garturlres", "https://publisher.example/story"])
+    malformed = "not-json"
+    response = ")]}'\n\n" + json.dumps(
+        [
+            ["wrb.fr", "Fbv4je", good],
+            ["wrb.fr", "Fbv4je", malformed],
+        ]
+    )
+
+    assert GoogleNewsScraper._parse_decoder_response(response) == [
+        "https://publisher.example/story",
+        None,
+    ]

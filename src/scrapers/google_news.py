@@ -26,10 +26,13 @@ Design notes:
 
 from __future__ import annotations
 
+import asyncio
 import calendar
 import hashlib
+import json
 import logging
 import math
+import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, List, Optional
@@ -50,6 +53,8 @@ class GoogleNewsScraper(BaseScraper):
 
     SOURCE_TYPE = SourceType.GOOGLE_NEWS
     BASE_URL = "https://news.google.com/rss/search"
+    DECODER_URL = "https://news.google.com/_/DotsSplashUi/data/batchexecute"
+    DECODER_RPC_ID = "Fbv4je"
 
     def __init__(self, config: GoogleNewsConfig, http_client: httpx.AsyncClient):
         """Initialize the scraper.
@@ -96,12 +101,15 @@ class GoogleNewsScraper(BaseScraper):
 
             feed = feedparser.parse(response.text)
 
+            entries = list(feed.entries[: self.gn_config.max_results])
+            raw_links = [
+                str(entry.get("link") or "").strip() for entry in entries
+            ]
+            resolved_links = await self._resolve_original_urls(raw_links)
+
             items: List[ContentItem] = []
-            for entry in feed.entries:
-                if len(items) >= self.gn_config.max_results:
-                    break
+            for entry, resolved_link in zip(entries, resolved_links):
                 raw_link = str(entry.get("link") or "").strip()
-                resolved_link = await self._resolve_original_url(raw_link)
                 item = self._entry_to_item(
                     entry,
                     link_override=resolved_link,
@@ -193,17 +201,176 @@ class GoogleNewsScraper(BaseScraper):
             logger.warning("Skipping invalid Google News entry: %s", exc)
             return None
 
-    async def _resolve_original_url(self, link: str) -> str:
-        """Resolve a Google News aggregation URL to its publisher URL when possible."""
-        if not link or self._is_original_url(link):
-            return link
+    async def _resolve_original_urls(self, links: List[str]) -> List[str]:
+        """Resolve Google News article IDs through its batched web RPC.
+
+        Google News RSS article links currently return an HTML shell instead of
+        redirecting to publishers. The shell carries a short-lived signature and
+        timestamp used by the same public batchexecute request as the news page.
+        Failures remain unresolved and are rejected later by the evidence gate.
+        """
+        resolved = list(links)
+        semaphore = asyncio.Semaphore(4)
+
+        async def fetch_parameters(
+            index: int, link: str
+        ) -> Optional[tuple[int, str, int, str]]:
+            if not link or self._is_original_url(link):
+                return None
+            async with semaphore:
+                parameters = await self._fetch_decoding_parameters(link)
+            if parameters is None:
+                return None
+            article_id, timestamp, signature = parameters
+            return index, article_id, timestamp, signature
+
+        parameters = await asyncio.gather(
+            *(fetch_parameters(index, link) for index, link in enumerate(links))
+        )
+        requested = [parameter for parameter in parameters if parameter is not None]
+        if not requested:
+            return resolved
+
+        decoded = await self._decode_article_ids(
+            [
+                (article_id, timestamp, signature)
+                for _, article_id, timestamp, signature in requested
+            ]
+        )
+        for (index, _, _, _), decoded_url in zip(requested, decoded):
+            if decoded_url and self._is_original_url(decoded_url):
+                resolved[index] = decoded_url
+        return resolved
+
+    async def _fetch_decoding_parameters(
+        self, link: str
+    ) -> Optional[tuple[str, int, str]]:
+        article_id = urlsplit(link).path.rstrip("/").rsplit("/", 1)[-1]
+        if not article_id:
+            return None
         try:
             response = await safe_request(self.client, "GET", link)
             response.raise_for_status()
-            final_url = str(response.url)
-            return final_url if self._is_original_url(final_url) else link
+            signature_match = re.search(
+                r"data-n-a-sg=[\"']([^\"']+)[\"']", response.text
+            )
+            timestamp_match = re.search(
+                r"data-n-a-ts=[\"'](\d+)[\"']", response.text
+            )
+            if not signature_match or not timestamp_match:
+                return None
+            return article_id, int(timestamp_match.group(1)), signature_match.group(1)
         except (httpx.HTTPError, UnsafeURLError, AttributeError, ValueError):
-            return link
+            return None
+
+    async def _decode_article_ids(
+        self, parameters: List[tuple[str, int, str]]
+    ) -> List[Optional[str]]:
+        locale = self.gn_config.ceid or (
+            f"{self.gn_config.country}:{self.gn_config.language}"
+        )
+        requests = []
+        for article_id, timestamp, signature in parameters:
+            request = [
+                "garturlreq",
+                [
+                    [
+                        "X",
+                        "X",
+                        ["X", "X"],
+                        None,
+                        None,
+                        1,
+                        1,
+                        locale,
+                        None,
+                        1,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        0,
+                        1,
+                    ],
+                    "X",
+                    "X",
+                    1,
+                    [1, 1, 1],
+                    1,
+                    1,
+                    None,
+                    0,
+                    0,
+                    None,
+                    0,
+                ],
+                article_id,
+                timestamp,
+                signature,
+            ]
+            requests.append(
+                [
+                    self.DECODER_RPC_ID,
+                    json.dumps(request, ensure_ascii=False, separators=(",", ":")),
+                ]
+            )
+
+        try:
+            response = await safe_request(
+                self.client,
+                "POST",
+                self.DECODER_URL,
+                data={
+                    "f.req": json.dumps(
+                        [requests], ensure_ascii=False, separators=(",", ":")
+                    )
+                },
+                headers={
+                    "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+                    "user-agent": "Mozilla/5.0 (compatible; AI-FDE-Radar/1.0)",
+                },
+            )
+            response.raise_for_status()
+            decoded = self._parse_decoder_response(response.text)
+        except (httpx.HTTPError, UnsafeURLError, AttributeError, ValueError):
+            decoded = []
+
+        # Preserve positional mapping even if the RPC returns fewer results.
+        return (decoded + [None] * len(parameters))[: len(parameters)]
+
+    @classmethod
+    def _parse_decoder_response(cls, text: str) -> List[Optional[str]]:
+        """Extract publisher URLs from a Google batchexecute response."""
+        frames: list[Any] = []
+        for segment in re.split(r"\n\s*\n", text):
+            candidate = segment.strip()
+            if not candidate.startswith("["):
+                continue
+            try:
+                payload = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, list):
+                frames.extend(payload)
+
+        decoded: List[Optional[str]] = []
+        for frame in frames:
+            if (
+                not isinstance(frame, list)
+                or len(frame) < 3
+                or frame[1] != cls.DECODER_RPC_ID
+                or not isinstance(frame[2], str)
+            ):
+                continue
+            try:
+                inner = json.loads(frame[2])
+            except json.JSONDecodeError:
+                decoded.append(None)
+                continue
+            url = inner[1] if isinstance(inner, list) and len(inner) > 1 else None
+            decoded.append(url if isinstance(url, str) else None)
+        return decoded
 
     @staticmethod
     def _is_original_url(url: str) -> bool:
