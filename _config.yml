@@ -1,0 +1,23 @@
+theme: jekyll-theme-cayman
+title: AI FDE Radar
+description: 每日 20 条 AI 产品、FDE、研究与工程情报
+baseurl: "/ai-fde-radar"
+url: ""
+
+# Build settings
+markdown: kramdown
+future: true # Allow future posts to be published
+plugins:
+  - jekyll-feed
+feed:
+  path: feed.xml
+exclude:
+  - ".github"
+  - "node_modules"
+
+defaults:
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "default"
