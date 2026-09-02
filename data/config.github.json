@@ -1,0 +1,368 @@
+{
+  "ai": {
+    "provider": "deepseek",
+    "model": "deepseek-v4-flash",
+    "base_url": "https://api.deepseek.com",
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "temperature": 0.1,
+    "max_tokens": 8192,
+    "throttle_sec": 0.5,
+    "languages": ["zh"],
+    "analysis_concurrency": 5,
+    "enrichment_concurrency": 5
+  },
+  "processing": {
+    "profiles_dir": "profiles",
+    "default_profile": "tech-news",
+    "profile_settings": {
+      "ai-product-fde": {
+        "threshold": 7.0,
+        "topic_dedup": true
+      },
+      "tech-news": {
+        "threshold": 7.0,
+        "topic_dedup": true
+      }
+    }
+  },
+  "sources": {
+    "github": [
+      {
+        "type": "repo_releases",
+        "owner": "openai",
+        "repo": "openai-agents-python",
+        "category": "agents-sdk",
+        "profile": "ai-product-fde",
+        "region": "global",
+        "source_tier": 1
+      },
+      {
+        "type": "repo_releases",
+        "owner": "anthropics",
+        "repo": "anthropic-sdk-python",
+        "category": "model-api",
+        "profile": "ai-product-fde",
+        "region": "global",
+        "source_tier": 1
+      },
+      {
+        "type": "repo_releases",
+        "owner": "QwenLM",
+        "repo": "Qwen-Agent",
+        "category": "agents-sdk",
+        "profile": "ai-product-fde",
+        "region": "china",
+        "source_tier": 1
+      },
+      {
+        "type": "repo_releases",
+        "owner": "deepseek-ai",
+        "repo": "DeepSeek-V3",
+        "category": "foundation-model",
+        "profile": "tech-news",
+        "region": "china",
+        "source_tier": 1
+      },
+      {
+        "type": "repo_releases",
+        "owner": "vllm-project",
+        "repo": "vllm",
+        "category": "inference",
+        "profile": "tech-news",
+        "region": "global",
+        "source_tier": 1
+      },
+      {
+        "type": "repo_releases",
+        "owner": "sgl-project",
+        "repo": "sglang",
+        "category": "inference",
+        "profile": "tech-news",
+        "region": "global",
+        "source_tier": 1
+      },
+      {
+        "type": "repo_releases",
+        "owner": "huggingface",
+        "repo": "transformers",
+        "category": "model-engineering",
+        "profile": "tech-news",
+        "region": "global",
+        "source_tier": 1
+      },
+      {
+        "type": "repo_releases",
+        "owner": "ollama",
+        "repo": "ollama",
+        "category": "local-ai",
+        "profile": "ai-product-fde",
+        "region": "global",
+        "source_tier": 1
+      },
+      {
+        "type": "repo_releases",
+        "owner": "ggml-org",
+        "repo": "llama.cpp",
+        "category": "inference",
+        "profile": "tech-news",
+        "region": "global",
+        "source_tier": 1
+      },
+      {
+        "type": "repo_releases",
+        "owner": "langchain-ai",
+        "repo": "langgraph",
+        "category": "agent-engineering",
+        "profile": "ai-product-fde",
+        "region": "global",
+        "source_tier": 1
+      }
+    ],
+    "hackernews": {
+      "enabled": true,
+      "fetch_top_stories": 200,
+      "min_score": 0,
+      "category": "community-signal",
+      "profile": ["ai-product-fde", "tech-news"],
+      "region": "global",
+      "source_tier": 3
+    },
+    "rss": [
+      {
+        "name": "OpenAI News",
+        "url": "https://openai.com/news/rss.xml",
+        "category": "official-product",
+        "profile": ["ai-product-fde", "tech-news"],
+        "region": "global",
+        "source_tier": 1
+      },
+      {
+        "name": "Google Research",
+        "url": "https://research.google/blog/rss/",
+        "category": "official-research",
+        "profile": "tech-news",
+        "region": "global",
+        "source_tier": 1
+      },
+      {
+        "name": "NVIDIA Deep Learning",
+        "url": "https://blogs.nvidia.com/category/deep-learning/feed/",
+        "category": "ai-infrastructure",
+        "profile": "tech-news",
+        "region": "global",
+        "source_tier": 1
+      },
+      {
+        "name": "arXiv cs.AI",
+        "url": "https://rss.arxiv.org/rss/cs.AI",
+        "category": "research-paper",
+        "profile": "tech-news",
+        "region": "global",
+        "source_tier": 1
+      },
+      {
+        "name": "arXiv cs.CL",
+        "url": "https://rss.arxiv.org/rss/cs.CL",
+        "category": "research-paper",
+        "profile": "tech-news",
+        "region": "global",
+        "source_tier": 1
+      },
+      {
+        "name": "Hugging Face Blog",
+        "url": "https://huggingface.co/blog/feed.xml",
+        "category": "open-source-ai",
+        "profile": ["ai-product-fde", "tech-news"],
+        "region": "global",
+        "source_tier": 2
+      },
+      {
+        "name": "Simon Willison",
+        "url": "https://simonwillison.net/atom/everything/",
+        "category": "ai-engineering",
+        "profile": ["ai-product-fde", "tech-news"],
+        "region": "global",
+        "source_tier": 2
+      }
+    ],
+    "reddit": {
+      "enabled": true,
+      "subreddits": [
+        {
+          "subreddit": "MachineLearning",
+          "sort": "hot",
+          "time_filter": "day",
+          "fetch_limit": 20,
+          "min_score": 20,
+          "category": "community-research",
+          "profile": "tech-news",
+          "region": "global",
+          "source_tier": 3
+        },
+        {
+          "subreddit": "LocalLLaMA",
+          "sort": "hot",
+          "time_filter": "day",
+          "fetch_limit": 20,
+          "min_score": 20,
+          "category": "community-engineering",
+          "profile": ["ai-product-fde", "tech-news"],
+          "region": "global",
+          "source_tier": 3
+        }
+      ],
+      "users": [],
+      "fetch_comments": 5
+    },
+    "telegram": {
+      "enabled": false,
+      "channels": []
+    },
+    "ossinsight": {
+      "enabled": true,
+      "period": "past_24_hours",
+      "languages": ["All", "Python", "TypeScript", "C++"],
+      "keywords": ["ai", "llm", "agent", "model", "inference", "rag", "mcp"],
+      "min_stars": 10,
+      "max_items": 30,
+      "category": "open-source-signal",
+      "profile": ["ai-product-fde", "tech-news"],
+      "region": "global",
+      "source_tier": 2
+    },
+    "gdelt": {
+      "enabled": true,
+      "query": "(artificial intelligence OR AI OR LLM) (model OR agent OR product OR research OR inference)",
+      "max_records": 75,
+      "timespan": "30h",
+      "language": "english",
+      "category": "global-media",
+      "profile": ["ai-product-fde", "tech-news"],
+      "region": "global",
+      "source_tier": 2
+    },
+    "google_news": [
+      {
+        "enabled": true,
+        "query": "(OpenAI OR Anthropic OR Google OR Meta OR Microsoft OR NVIDIA OR artificial intelligence) (product OR launch OR API OR agent OR enterprise)",
+        "language": "en",
+        "country": "US",
+        "max_results": 60,
+        "category": "ai-product",
+        "profile": "ai-product-fde",
+        "region": "global",
+        "source_tier": 2
+      },
+      {
+        "enabled": true,
+        "query": "(OpenAI OR Anthropic OR DeepMind OR Meta OR NVIDIA OR LLM) (research OR model OR benchmark OR inference OR open source)",
+        "language": "en",
+        "country": "US",
+        "max_results": 60,
+        "category": "ai-engineering",
+        "profile": "tech-news",
+        "region": "global",
+        "source_tier": 2
+      },
+      {
+        "enabled": true,
+        "query": "(DeepSeek OR 通义千问 OR 人工智能 OR 大模型) (产品 OR 发布 OR 智能体 OR 企业 OR 机器之心 OR 量子位 OR InfoQ OR 36氪)",
+        "language": "zh-CN",
+        "country": "CN",
+        "ceid": "CN:zh-Hans",
+        "max_results": 60,
+        "category": "china-ai-product",
+        "profile": "ai-product-fde",
+        "region": "china",
+        "source_tier": 2
+      },
+      {
+        "enabled": true,
+        "query": "(DeepSeek OR 通义千问 OR 大模型) (技术 OR 论文 OR 开源 OR 推理 OR 训练 OR 评测 OR 机器之心 OR 量子位 OR InfoQ)",
+        "language": "zh-CN",
+        "country": "CN",
+        "ceid": "CN:zh-Hans",
+        "max_results": 60,
+        "category": "china-ai-engineering",
+        "profile": "tech-news",
+        "region": "china",
+        "source_tier": 2
+      }
+    ],
+    "hf_papers": {
+      "enabled": true,
+      "max_results": 50,
+      "sort": "publishedAt",
+      "category": "daily-papers",
+      "profile": "tech-news",
+      "region": "global",
+      "source_tier": 1
+    }
+  },
+  "collection": {
+    "time_window_hours": 30,
+    "candidate_limit": 60,
+    "history_days": 7,
+    "history_path": "data/state/seen_items.json",
+    "sent_marker_dir": "data/state/sent",
+    "fetch_fulltext": true
+  },
+  "digest": {
+    "max_items": 20,
+    "profile_order": ["ai-product-fde", "tech-news"],
+    "profile_targets": {
+      "ai-product-fde": 10,
+      "tech-news": 10
+    },
+    "region_targets": {
+      "global": 12,
+      "china": 8
+    },
+    "matrix_targets": {
+      "global/ai-product-fde": 6,
+      "global/tech-news": 6,
+      "china/ai-product-fde": 4,
+      "china/tech-news": 4
+    },
+    "quality_fill": true,
+    "deep_items": 5,
+    "brief_items": 15,
+    "category_groups": {},
+    "default_group": "other",
+    "default_group_limit": null
+  },
+  "metrics": {
+    "enabled": true,
+    "output_dir": "docs/metrics",
+    "input_cost_per_million_usd": 0.44,
+    "output_cost_per_million_usd": 1.32,
+    "pricing_note": "DeepSeek V4 Flash peak cache-miss rates checked 2026-09-02; conservative estimate because cache-hit usage is not separated."
+  },
+  "webhook": {
+    "enabled": true,
+    "url_env": "HORIZON_WEBHOOK_URL",
+    "delivery": "summary",
+    "overview_position": "first",
+    "platform": "feishu",
+    "layout": "collapsible",
+    "fallback_layout": "markdown",
+    "languages": ["zh"],
+    "request_body": {
+      "msg_type": "interactive",
+      "card": {
+        "schema": "2.0",
+        "config": {"wide_screen_mode": true},
+        "header": {
+          "title": {"tag": "plain_text", "content": "#{message_title}"},
+          "template": "blue"
+        },
+        "body": {
+          "elements": [
+            {"tag": "markdown", "content": "#{summary}"}
+          ]
+        }
+      }
+    },
+    "headers": ""
+  }
+}

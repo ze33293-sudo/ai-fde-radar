@@ -1,0 +1,37 @@
+{
+  "id": "ai-product-fde",
+  "name": "AI Product & FDE",
+  "display_names": {
+    "zh": "AI 产品与 FDE"
+  },
+  "match": "match.md",
+  "analysis": "analysis.md",
+  "enrichment": {
+    "prompt": "enrichment.md",
+    "blocks": [
+      {
+        "id": "summary",
+        "type": "section",
+        "tools": [],
+        "primary": true
+      },
+      {
+        "id": "importance",
+        "type": "section",
+        "tools": ["web_search"]
+      },
+      {
+        "id": "fde_takeaway",
+        "type": "section",
+        "tools": [],
+        "primary": false
+      },
+      {
+        "id": "opportunity_risk",
+        "type": "section",
+        "tools": ["web_search"],
+        "optional": true
+      }
+    ]
+  }
+}
