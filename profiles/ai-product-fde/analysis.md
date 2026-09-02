@@ -14,13 +14,15 @@ Evaluate timely information for a beginner AI product manager/FDE who is buildin
 
 - **9–10:** Immediately useful and unusually well evidenced; materially changes a product decision or provides a reusable implementation playbook.
 - **7–8:** Clearly relevant, actionable within seven days, and supported by a real capability, workflow, metric, failure, or constraint.
-- **5–6:** Related but generic, lightly evidenced, incremental, or hard for this beginner to apply now.
+- **6–6.9:** A useful practical lead with enough source-grounded detail to justify full-text verification and one small experiment.
+- **5–5.9:** Related but generic, lightly evidenced, incremental, or hard for this beginner to apply now.
 - **3–4:** Mostly marketing, commentary, funding, executive opinion, or a feature with no concrete workflow.
 - **0–2:** Off-topic, speculative, inaccessible, copied, or unsupported.
 
 # Hard rules
 
-- If no specific action can be completed within seven days, set `actionable_within_7_days` to false. The program will cap the score at 6.5.
+- A 15–30 minute action may be derived from a source-grounded capability or lesson; the source does not need to be a step-by-step tutorial. Examples include testing a released feature on one ticket, adding one evaluation case, copying one workflow metric into a case-study teardown, updating one PRD assumption, or extracting one job requirement into a resume checklist.
+- If no specific action can be completed within seven days, set `actionable_within_7_days` to false. The program will cap the score below the publication threshold.
 - Reject unreleased demos, generic “AI will change X” claims, funding-only stories, leaderboards without a product decision, and product launches without availability, users, or a workflow.
 - Vendor case-study metrics must be attributed and their uncertainty or commercial incentive acknowledged.
 - Prefer customer support, sales, knowledge/RAG, data/BI, and office workflows because they map to the reader’s daily practice.

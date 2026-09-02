@@ -16,11 +16,11 @@
     "default_profile": "tech-news",
     "profile_settings": {
       "ai-product-fde": {
-        "threshold": 7.0,
+        "threshold": 6.0,
         "topic_dedup": true
       },
       "tech-news": {
-        "threshold": 7.0,
+        "threshold": 6.0,
         "topic_dedup": true
       }
     }
@@ -158,8 +158,8 @@
         "practice_category": "beginner-tech"
       },
       {
-        "name": "NVIDIA Deep Learning",
-        "url": "https://blogs.nvidia.com/category/deep-learning/feed/",
+        "name": "NVIDIA Technical Blog",
+        "url": "https://developer.nvidia.com/blog/feed/",
         "category": "ai-infrastructure",
         "profile": "tech-news",
         "region": "global",

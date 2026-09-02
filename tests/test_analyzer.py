@@ -315,5 +315,5 @@ def test_practice_gate_caps_item_without_seven_day_action():
 
     assert item.processing is not None
     assert item.processing.analysis is not None
-    assert item.processing.analysis.score == 6.5
-    assert "score capped at 6.5" in item.processing.analysis.reason
+    assert item.processing.analysis.score == 5.9
+    assert "score capped at 5.9" in item.processing.analysis.reason

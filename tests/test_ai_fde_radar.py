@@ -286,6 +286,7 @@ def test_metrics_are_secret_free_and_include_distribution(tmp_path: Path) -> Non
         history_removed=5,
         candidate_count=60,
         analyzed_count=60,
+        analyzed_items=selected,
         threshold_count=22,
         selected_items=selected,
         usage=usage,
@@ -296,6 +297,8 @@ def test_metrics_are_secret_free_and_include_distribution(tmp_path: Path) -> Non
     assert payload["pipeline"]["fetched"] == 120
     assert payload["selection"]["regions"] == {"global": 1, "china": 1}
     assert payload["selection"]["practice_categories"] == {"unclassified": 2}
+    assert payload["analysis"]["numeric_scores"] == 2
+    assert payload["analysis"]["score_buckets"] == {"8-8.9": 2}
     assert "DEEPSEEK_API_KEY" not in json.dumps(payload)
 
 

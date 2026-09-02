@@ -201,8 +201,8 @@ class ContentAnalyzer:
         """Enforce the relevance contract independently of model scoring."""
         has_action = bool(result.action and result.action.strip())
         if not result.actionable_within_7_days or not has_action:
-            result.score = min(result.score or 0, 6.5)
-            suffix = "No concrete action for the next seven days; score capped at 6.5."
+            result.score = min(result.score or 0, 5.9)
+            suffix = "No concrete action for the next seven days; score capped at 5.9."
             result.reason = f"{result.reason.rstrip()} {suffix}".strip()
 
     @classmethod

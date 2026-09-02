@@ -478,6 +478,7 @@ class HorizonOrchestrator:
                 history_removed=history_result.removed,
                 candidate_count=len(model_candidates),
                 analyzed_count=len(analyzed_items),
+                analyzed_items=analyzed_items,
                 threshold_count=filtering_result.threshold_count,
                 selected_items=important_items,
                 usage=usage,
@@ -795,6 +796,7 @@ class HorizonOrchestrator:
         history_removed: int,
         candidate_count: int,
         analyzed_count: int,
+        analyzed_items: List[ContentItem],
         threshold_count: int,
         selected_items: List[ContentItem],
         usage,
@@ -818,6 +820,32 @@ class HorizonOrchestrator:
             practice_counts[
                 str(item.metadata.get("practice_category") or "unclassified")
             ] += 1
+
+        score_buckets: Dict[str, int] = defaultdict(int)
+        analyzed_practice_counts: Dict[str, int] = defaultdict(int)
+        actionable_count = 0
+        practice_gate_capped = 0
+        numeric_scores: List[float] = []
+        for item in analyzed_items:
+            analysis = item.processing.analysis if item.processing else None
+            score = analysis.score if analysis else None
+            if score is None:
+                score_buckets["missing"] += 1
+                continue
+            numeric_scores.append(score)
+            lower = int(score)
+            bucket = "10" if lower >= 10 else f"{lower}-{lower + 0.9:.1f}"
+            score_buckets[bucket] += 1
+            practice = (
+                analysis.practice_category
+                or item.metadata.get("practice_category")
+                or "unclassified"
+            )
+            analyzed_practice_counts[str(practice)] += 1
+            if analysis.actionable_within_7_days:
+                actionable_count += 1
+            if "score capped at 5.9" in analysis.reason:
+                practice_gate_capped += 1
 
         input_rate = self.config.metrics.input_cost_per_million_usd
         output_rate = self.config.metrics.output_cost_per_million_usd
@@ -863,6 +891,14 @@ class HorizonOrchestrator:
                 "brief_items": max(
                     0, len(selected_items) - self.config.digest.deep_items
                 ),
+            },
+            "analysis": {
+                "numeric_scores": len(numeric_scores),
+                "score_buckets": dict(sorted(score_buckets.items())),
+                "top_scores": sorted(numeric_scores, reverse=True)[:10],
+                "actionable_within_7_days": actionable_count,
+                "practice_gate_capped": practice_gate_capped,
+                "practice_categories": dict(analyzed_practice_counts),
             },
             "sources": source_metrics,
             "model": {
