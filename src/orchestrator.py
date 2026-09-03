@@ -3,6 +3,7 @@
 import asyncio
 import json
 import math
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -57,7 +58,7 @@ _TRACKING_QUERY_PARAMETERS = {
 }
 
 _AI_SIGNAL_TERMS = {
-    " ai ",
+    "ai",
     "llm",
     "machine learning",
     "artificial intelligence",
@@ -80,6 +81,238 @@ _AI_SIGNAL_TERMS = {
     "äººå·¥æ™ºèƒ½",
     "æ™ºèƒ½ä½“",
 }
+
+_PRACTICAL_ACTION_SIGNALS = {
+    "how to",
+    "tutorial",
+    "guide",
+    "walkthrough",
+    "step-by-step",
+    "quickstart",
+    "cookbook",
+    "template",
+    "starter",
+    "playbook",
+    "case study",
+    "customer story",
+    "postmortem",
+    "lessons learned",
+    "production incident",
+    "available now",
+    "generally available",
+    "æ•™ç¨‹",
+    "æŒ‡å—",
+    "å®æˆ˜",
+    "æ‰‹æŠŠæ‰‹",
+    "å¤ç›˜",
+    "è¸©å‘",
+    "æ¡ˆä¾‹",
+    "è½åœ°",
+    "ä¸Šçº¿",
+    "å·¥ä½œæµ",
+}
+
+_PROJECT_RELEVANCE_SIGNALS = {
+    "customer support",
+    "customer service",
+    "support agent",
+    "service desk",
+    "ticket triage",
+    "ticketing",
+    "case management",
+    "knowledge base",
+    "knowledge management",
+    "human escalation",
+    "human-in-the-loop",
+    "å”®å",
+    "å®¢æœ",
+    "å·¥å•",
+    "çŸ¥è¯†åº“",
+    "äººå·¥è½¬æ¥",
+    "äººå·¥å®¡æ ¸",
+}
+
+_PRACTICAL_NEGATIVE_TITLE_SIGNALS = {
+    "funding",
+    "fundraise",
+    "valuation",
+    "stock price",
+    "earnings",
+    "lawsuit",
+    "copyright suit",
+    "government sides",
+    "bans ai",
+    "rumor",
+    "opinion",
+    "èèµ„",
+    "ä¼°å€¼",
+    "è‚¡ä»·",
+    "è´¢æŠ¥",
+    "è¯‰è®¼",
+    "ç‰ˆæƒæ¡ˆ",
+    "ä¼ é—»",
+    "é«˜ç®¡è§‚ç‚¹",
+}
+
+_DISTANT_TECH_TITLE_SIGNALS = {
+    "cuda",
+    "gpu kernel",
+    "speculative decoding",
+    "model training",
+    "training infrastructure",
+    "robotics",
+    "èŠ¯ç‰‡",
+    "ç®—åŠ›é›†ç¾¤",
+    "è®­ç»ƒæ¡†æ¶",
+    "æœºå™¨äºº",
+}
+
+_PRACTICE_CATEGORY_SIGNALS = {
+    "today-use": {
+        "released",
+        "release",
+        "introducing",
+        "launch",
+        "launched",
+        "available",
+        "update",
+        "new feature",
+        "changelog",
+        "å‘å¸ƒ",
+        "æ¨å‡º",
+        "ä¸Šçº¿",
+        "å¼€æ”¾ä½¿ç”¨",
+        "æ›´æ–°",
+        "æ–°åŠŸèƒ½",
+    },
+    "enterprise-case": {
+        "case study",
+        "customer story",
+        "deployed",
+        "deployment",
+        "rollout",
+        "adoption",
+        "roi",
+        "workflow",
+        "customer support",
+        "customer service",
+        "case management",
+        "æ¡ˆä¾‹",
+        "è½åœ°",
+        "éƒ¨ç½²",
+        "é‡‡ç”¨ç‡",
+        "å·¥ä½œæµ",
+        "å®¢æœ",
+        "å”®å",
+        "å·¥å•",
+    },
+    "method-pitfall": {
+        "evaluation",
+        "evals",
+        "benchmark methodology",
+        "failure",
+        "reliability",
+        "observability",
+        "guardrail",
+        "permissions",
+        "security",
+        "postmortem",
+        "human-in-the-loop",
+        "cost per",
+        "è¯„æµ‹",
+        "è¯„ä¼°",
+        "å¤±è´¥",
+        "å¯é æ€§",
+        "å¯è§‚æµ‹",
+        "æƒé™",
+        "å®‰å…¨",
+        "æˆæœ¬",
+        "è¸©å‘",
+        "å¤ç›˜",
+    },
+    "beginner-tech": {
+        "explained",
+        "introduction",
+        "beginner",
+        "guide",
+        "tutorial",
+        "walkthrough",
+        "architecture",
+        "comparison",
+        "å…¥é—¨",
+        "ç§‘æ™®",
+        "åŸç†",
+        "æŒ‡å—",
+        "æ•™ç¨‹",
+        "æ¶æ„",
+        "å¯¹æ¯”",
+    },
+    "china-career": {
+        "product manager",
+        "forward deployed engineer",
+        "fde",
+        "job description",
+        "hiring",
+        "interview",
+        "portfolio",
+        "career",
+        "äº§å“ç»ç†",
+        "åº”ç”¨å®æ–½",
+        "å²—ä½",
+        "æ‹›è˜",
+        "é¢è¯•",
+        "ä½œå“é›†",
+        "èƒ½åŠ›è¦æ±‚",
+        "å¦é—¨",
+    },
+    "hands-on": {
+        "hands-on",
+        "tutorial",
+        "template",
+        "starter",
+        "quickstart",
+        "cookbook",
+        "code example",
+        "sample app",
+        "github repo",
+        "demo",
+        "å®æˆ˜",
+        "æ•™ç¨‹",
+        "æ¨¡æ¿",
+        "ç¤ºä¾‹ä»£ç ",
+        "å¼€æºé¡¹ç›®",
+    },
+}
+
+_MEASURABLE_EVIDENCE_PATTERN = re.compile(
+    r"(?:\b\d+(?:\.\d+)?\s?%|\b\d+(?:\.\d+)?x\b|"
+    r"\b(?:latency|accuracy|resolution rate|handle time|cost|roi|csat)\b|"
+    r"(?:å‡†ç¡®ç‡|è§£å†³ç‡|è½¬äººå·¥ç‡|å“åº”æ—¶é—´|å¤„ç†æ—¶é•¿|æˆæœ¬|é‡‡ç”¨ç‡|æ»¡æ„åº¦))",
+    re.IGNORECASE,
+)
+
+_VERSION_ONLY_RELEASE_PATTERN = re.compile(
+    r"\breleased?\s+(?:v?\d|b\d)|\b(?:v?\d+(?:\.\d+){1,3}|b\d{3,})\b",
+    re.IGNORECASE,
+)
+
+
+def _contains_signal(text: str, signal: str) -> bool:
+    """Match ASCII terms on token boundaries and CJK terms as substrings."""
+    folded_text = text.casefold()
+    folded_signal = signal.casefold()
+    if folded_signal.isascii():
+        return bool(
+            re.search(
+                rf"(?<![a-z0-9]){re.escape(folded_signal)}(?![a-z0-9])",
+                folded_text,
+            )
+        )
+    return folded_signal in folded_text
+
+
+def _signal_count(text: str, signals: set[str]) -> int:
+    return sum(_contains_signal(text, signal) for signal in signals)
 
 
 def _deduplication_url_key(url: str) -> tuple[str, str, str, str, Optional[int], str, str]:
@@ -295,1572 +528,4 @@ class HorizonOrchestrator:
             since = self._determine_time_window(force_hours)
             self.console.print(
                 f"{self.icons['date']} Fetching content since: "
-                f"{since.strftime('%Y-%m-%d %H:%M:%S')}\n"
-            )
-
-            # 2. Fetch content from all sources
-            all_items = await self.fetch_all_sources(since)
-            self.console.print(
-                f"{self.icons['fetched']} Fetched {len(all_items)} items from all sources\n"
-            )
-
-            if self.last_fetch_report and self.last_fetch_report.all_failed:
-                raise RuntimeError(self.last_fetch_report.failure_message())
-
-            if not all_items:
-                self.console.print("[yellow]No new content found. Exiting.[/yellow]")
-                return
-
-            # 3. Merge cross-source duplicates (same URL from different sources)
-            merged_items = self.merge_cross_source_duplicates(all_items)
-            if len(merged_items) < len(all_items):
-                self.console.print(
-                    f"{self.icons['merge']} Merged "
-                    f"{len(all_items) - len(merged_items)} cross-source duplicates "
-                    f"â†’ {len(merged_items)} unique items\n"
-                )
-
-            # 4. Remove entries selected during the previous seven days.
-            history = HistoryStore(
-                Path(self.config.collection.history_path),
-                self.config.collection.history_days,
-            )
-            history.load()
-            history_result = history.filter_new(merged_items)
-            if history_result.removed:
-                self.console.print(
-                    f"{self.icons['cleanup']} Removed {history_result.removed} "
-                    "items seen in the recent history window\n"
-                )
-
-            # 5. Rule prefilter before paid model scoring.
-            model_candidates = self.prefilter_candidates(history_result.items)
-
-            # 6. Analyze at most collection.candidate_limit items with AI.
-            analyzed_items = await self.analyze_items(model_candidates)
-            self.console.print(
-                f"{self.icons['ai']} Analyzed {len(analyzed_items)} items with AI\n"
-            )
-            self.ensure_analysis_health(analyzed_items)
-
-            # 7. Filter, deduplicate, and balance the digest
-            filtering_result = await self.select_digest_items(
-                analyzed_items,
-            )
-            important_items = filtering_result.items
-
-            # Fetch full text for the selected digest first. If indexed articles
-            # cannot be opened, hydrate a small quality reserve and rebalance so
-            # transient paywalls/403s do not unnecessarily shrink the edition.
-            important_items = await self.hydrate_selected_items(important_items)
-            target_size = self.config.digest.max_items or len(important_items)
-            if (
-                len(important_items) < target_size
-                and filtering_result.reserve_items
-                and self.config.digest.fulltext_reserve > 0
-            ):
-                reserve_items = await self.hydrate_selected_items(
-                    filtering_result.reserve_items[
-                        : self.config.digest.fulltext_reserve
-                    ]
-                )
-                important_items = self.apply_balanced_digest(
-                    important_items + reserve_items,
-                    log=False,
-                ).items
-            self._annotate_digest_depth(important_items)
-
-            # Show per-sub-source selection breakdown
-            selected_counts: Dict[str, int] = defaultdict(int)
-            for item in important_items:
-                key = f"{item.source_type.value}/{self._sub_source_label(item)}"
-                selected_counts[key] += 1
-            for source_key, count in sorted(selected_counts.items()):
-                self.console.print(f"      {self.icons['detail']} {source_key}: {count}")
-            self.console.print("")
-
-            # 8. Search related stories + enrich with background knowledge (2nd AI pass)
-            await self.enrich_items(important_items)
-
-            # 9. Generate and save daily summaries for each configured language
-            today = local_today
-            for lang in self.config.ai.languages:
-                summarizer = DailySummarizer(
-                    profile_names=self.profiles.names,
-                    profile_order=self.config.digest.profile_order,
-                )
-                summary = await summarizer.generate_summary(important_items, today, len(all_items), language=lang)
-
-                # Save to data/summaries/
-                summary_path = self.storage.save_daily_summary(today, summary, language=lang)
-                self.console.print(
-                    f"{self.icons['save']} Saved {lang.upper()} summary to: {summary_path}\n"
-                )
-
-                # Copy to docs/ for GitHub Pages
-                try:
-                    post_filename = f"{today}-summary-{lang}.md"
-                    posts_dir = Path("docs/_posts")
-                    posts_dir.mkdir(parents=True, exist_ok=True)
-
-                    dest_path = safe_output_path(posts_dir, post_filename)
-
-                    # Add Jekyll front matter
-                    front_matter = (
-                        "---\n"
-                        "layout: default\n"
-                        f"title: \"AI FDE Radar: {today} ({lang.upper()})\"\n"
-                        f"date: {today}\n"
-                        f"lang: {lang}\n"
-                        "---\n\n"
-                    )
-
-                    # Strip leading H1 header to avoid duplication with Jekyll title
-                    summary_content = summary
-                    first_line = summary_content.strip().split("\n")[0]
-                    if first_line.startswith("# "):
-                        parts = summary_content.split("\n", 1)
-                        if len(parts) > 1:
-                            summary_content = parts[1].strip()
-
-                    with open(dest_path, "w", encoding="utf-8") as f:
-                        f.write(front_matter + summary_content)
-
-                    self.console.print(
-                        f"{self.icons['document']} Copied {lang.upper()} summary "
-                        f"to GitHub Pages: {dest_path}\n"
-                    )
-                except Exception as e:
-                    self.console.print(
-                        f"[yellow]{self.icons['warning']} Failed to copy "
-                        f"{lang.upper()} summary to docs/: {e}[/yellow]\n"
-                    )
-
-                # Send email if configured
-                if (
-                    not dry_run
-                    and self.email_manager
-                    and self.config.email
-                    and self.config.email.enabled
-                ):
-                    self.console.print(
-                        f"{self.icons['email']} Sending {lang.upper()} email summary..."
-                    )
-                    subscribers = self.storage.load_subscribers()
-                    subject = f"Horizon Summary ({lang.upper()}) - {today}"
-                    self.email_manager.send_daily_summary(summary, subject, subscribers)
-
-                # Send webhook notification if configured
-                if self.webhook_notifier and not dry_run:
-                    await self.webhook_notifier.send_daily_summary(
-                        summary=summary,
-                        important_items=important_items,
-                        all_items_count=len(all_items),
-                        date=today,
-                        lang=lang,
-                        summarizer=summarizer,
-                    )
-
-            if not dry_run:
-                history.record(important_items)
-                history.save()
-                if self.webhook_notifier:
-                    self._mark_sent(sent_marker)
-
-            self.console.print(
-                f"[bold green]{self.icons['success']} "
-                "AI FDE Radar completed successfully![/bold green]"
-            )
-            usage = get_usage_snapshot()
-            self._write_run_metrics(
-                date=today,
-                fetched_count=len(all_items),
-                merged_count=len(merged_items),
-                history_removed=history_result.removed,
-                candidate_count=len(model_candidates),
-                analyzed_count=len(analyzed_items),
-                analyzed_items=analyzed_items,
-                threshold_count=filtering_result.threshold_count,
-                selected_items=important_items,
-                usage=usage,
-                dry_run=dry_run,
-            )
-            if usage.total_tokens > 0:
-                self.console.print(
-                    f"\n{self.icons['tokens']} Token usage this run: "
-                    f"{usage.total_tokens} tokens "
-                    f"(input: {usage.total_input_tokens}, output: {usage.total_output_tokens})"
-                )
-                for provider, u in sorted(usage.per_provider.items()):
-                    if u.total <= 0:
-                        continue
-                    self.console.print(
-                        f"   {self.icons['detail']} {provider}: {u.total} tokens "
-                        f"(in: {u.input_tokens}, out: {u.output_tokens})"
-                    )
-
-        except Exception as e:
-            self.console.print(
-                f"[bold red]{self.icons['error']} Error: {e}[/bold red]"
-            )
-
-            # Send webhook failure notification if configured
-            if self.webhook_notifier:
-                await self.webhook_notifier.send_failure(
-                    date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-                    error_message=str(e),
-                )
-
-            raise
-
-    def _sent_marker_path(self, date: str) -> Path:
-        marker_dir = getattr(
-            self.config.collection, "sent_marker_dir", "data/state/sent"
-        )
-        return Path(marker_dir) / f"{date}.json"
-
-    @staticmethod
-    def _mark_sent(marker: Path) -> None:
-        marker.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "status": "success",
-            "sent_at": datetime.now(timezone.utc).isoformat(),
-        }
-        _atomic_write_text(
-            marker,
-            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-        )
-
-    def prefilter_candidates(self, items: List[ContentItem]) -> List[ContentItem]:
-        """Apply evidence checks and build a balanced AI-scoring candidate pool.
-
-        The final digest matrix is expanded proportionally to ``candidate_limit``
-        so a high-volume feed (for example arXiv) cannot consume every model
-        scoring slot before China or product/FDE candidates are considered.
-        Empty cells are backfilled from the remaining best evidence, preserving
-        the configured quality-first behavior.
-        """
-        eligible = []
-        for item in items:
-            if (
-                item.source_type == SourceType.GOOGLE_NEWS
-                and item.metadata.get("original_url_resolved") is False
-            ):
-                continue
-            if item.source_type == SourceType.HACKERNEWS:
-                searchable = f" {(item.title + ' ' + (item.content or '')).casefold()} "
-                if not any(term in searchable for term in _AI_SIGNAL_TERMS):
-                    continue
-            eligible.append(item)
-
-        eligible.sort(
-            key=self._candidate_priority
-        )
-        limit = self.config.collection.candidate_limit
-        practice_budgets = self._candidate_practice_budgets(limit)
-        matrix_budgets = (
-            {} if practice_budgets else self._candidate_matrix_budgets(limit)
-        )
-        quota_budgets = practice_budgets or matrix_budgets
-        quota_matcher = (
-            self._candidate_matches_practice
-            if practice_budgets
-            else self._candidate_matches_matrix
-        )
-        if not quota_budgets:
-            limited = eligible[:limit]
-        else:
-            limited = []
-            selected_ids: set[str] = set()
-
-            for quota_key, budget in quota_budgets.items():
-                cell_candidates = [
-                    item
-                    for item in eligible
-                    if item.id not in selected_ids
-                    and quota_matcher(item, quota_key)
-                ]
-                # Four distinct sources per full cell is a soft diversity goal.
-                # A second pass below relaxes it when the open-web supply is thin.
-                per_source_soft_cap = max(1, math.ceil(budget / 4))
-                source_counts: Dict[str, int] = defaultdict(int)
-                cell_selected: List[ContentItem] = []
-
-                for item in cell_candidates:
-                    source_key = self._candidate_source_key(item)
-                    if source_counts[source_key] >= per_source_soft_cap:
-                        continue
-                    cell_selected.append(item)
-                    source_counts[source_key] += 1
-                    if len(cell_selected) >= budget:
-                        break
-
-                if len(cell_selected) < budget:
-                    cell_ids = {item.id for item in cell_selected}
-                    for item in cell_candidates:
-                        if item.id in cell_ids:
-                            continue
-                        cell_selected.append(item)
-                        if len(cell_selected) >= budget:
-                            break
-
-                limited.extend(cell_selected)
-                selected_ids.update(item.id for item in cell_selected)
-
-            # Quality-first deficit fill: cells with insufficient supply donate
-            # their unused slots to the strongest remaining eligible evidence.
-            for item in eligible:
-                if len(limited) >= limit:
-                    break
-                if item.id not in selected_ids:
-                    limited.append(item)
-                    selected_ids.add(item.id)
-
-        if len(limited) < len(items):
-            self.console.print(
-                f"{self.icons['filter']} Rule prefilter retained {len(limited)}/"
-                f"{len(items)} candidates for model scoring\n"
-            )
-        if quota_budgets:
-            quota_counts: Dict[str, int] = defaultdict(int)
-            for item in limited:
-                for quota_key in quota_budgets:
-                    if quota_matcher(item, quota_key):
-                        quota_counts[quota_key] += 1
-                        break
-            quota_label = "practice" if practice_budgets else "candidate"
-            for quota_key, budget in quota_budgets.items():
-                self.console.print(
-                    f"      {self.icons['detail']} {quota_label} {quota_key}: "
-                    f"{quota_counts.get(quota_key, 0)}/{budget}"
-                )
-            self.console.print("")
-        return limited
-
-    @staticmethod
-    def _candidate_priority(item: ContentItem) -> tuple[int, float, int]:
-        return (
-            int(item.metadata.get("source_tier", 2)),
-            -item.published_at.timestamp(),
-            -int(item.metadata.get("score") or item.metadata.get("stars_gained") or 0),
-        )
-
-    def _candidate_matrix_budgets(self, limit: int) -> Dict[str, int]:
-        """Scale final matrix targets to the model-scoring candidate limit."""
-        targets = {
-            key: target
-            for key, target in self.config.digest.matrix_targets.items()
-            if target > 0
-        }
-        total = sum(targets.values())
-        if not targets or total <= 0:
-            return {}
-
-        exact = {key: limit * target / total for key, target in targets.items()}
-        budgets = {key: math.floor(value) for key, value in exact.items()}
-        remainder = limit - sum(budgets.values())
-        order = {key: index for index, key in enumerate(targets)}
-        for key in sorted(
-            targets,
-            key=lambda candidate: (-(exact[candidate] - budgets[candidate]), order[candidate]),
-        )[:remainder]:
-            budgets[key] += 1
-        return budgets
-
-    def _candidate_practice_budgets(self, limit: int) -> Dict[str, int]:
-        """Scale practical content-pillar targets to the scoring budget."""
-        targets = {
-            key: target
-            for key, target in self.config.digest.practice_targets.items()
-            if target > 0
-        }
-        total = sum(targets.values())
-        if not targets or total <= 0:
-            return {}
-
-        exact = {key: limit * target / total for key, target in targets.items()}
-        budgets = {key: math.floor(value) for key, value in exact.items()}
-        remainder = limit - sum(budgets.values())
-        order = {key: index for index, key in enumerate(targets)}
-        for key in sorted(
-            targets,
-            key=lambda candidate: (
-                -(exact[candidate] - budgets[candidate]),
-                order[candidate],
-            ),
-        )[:remainder]:
-            budgets[key] += 1
-        return budgets
-
-    def _candidate_profiles(self, item: ContentItem) -> set[str]:
-        requested = item.profile
-        if isinstance(requested, list):
-            profiles = {profile.strip() for profile in requested if profile.strip()}
-        elif isinstance(requested, str) and requested.strip():
-            profiles = {requested.strip()}
-        elif item.processing:
-            profiles = {item.processing.classification.profile}
-        else:
-            profiles = {self.profiles.default_profile}
-        return profiles
-
-    def _candidate_matches_matrix(self, item: ContentItem, matrix_key: str) -> bool:
-        region, _, profile = matrix_key.partition("/")
-        item_region = str(item.metadata.get("region") or "global")
-        return item_region == region and profile in self._candidate_profiles(item)
-
-    @staticmethod
-    def _candidate_matches_practice(item: ContentItem, category: str) -> bool:
-        return item.metadata.get("practice_category") == category
-
-    @staticmethod
-    def _candidate_source_key(item: ContentItem) -> str:
-        """Return a stable source bucket used only for prefilter diversity."""
-        metadata = item.metadata
-        for field_name in (
-            "feed_name",
-            "source_name",
-            "subreddit",
-            "repo",
-            "watchlist",
-            "domain",
-            "gn_query",
-        ):
-            value = metadata.get(field_name)
-            if value:
-                return f"{item.source_type.value}:{value}"
-        hostname = urlsplit(str(item.url)).hostname or "unknown"
-        return f"{item.source_type.value}:{hostname.casefold()}"
-
-    async def hydrate_selected_items(
-        self, items: List[ContentItem]
-    ) -> List[ContentItem]:
-        """Fetch complete article text for final items only."""
-        if not items:
-            return []
-        if not getattr(self.config.collection, "fetch_fulltext", False):
-            return items
-        extractor = TrafilaturaExtractor(TrafilaturaExtractorConfig())
-        semaphore = asyncio.Semaphore(5)
-
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            async def hydrate(item: ContentItem) -> tuple[ContentItem, bool]:
-                async with semaphore:
-                    extracted = await extractor.extract(str(item.url), client)
-                if extracted and len(extracted.strip()) >= 200:
-                    if item.source_type in {SourceType.HACKERNEWS, SourceType.REDDIT}:
-                        community = item.content or ""
-                        item.content = extracted + (
-                            f"\n\n--- Community context ---\n{community}"
-                            if community
-                            else ""
-                        )
-                    else:
-                        item.content = extracted
-                    item.metadata["fulltext_status"] = "success"
-                    return item, True
-
-                item.metadata["fulltext_status"] = "unavailable"
-                has_reliable_fallback = (
-                    item.source_type not in {SourceType.GOOGLE_NEWS, SourceType.GDELT}
-                    and len((item.content or "").strip()) >= 160
-                )
-                return item, has_reliable_fallback
-
-            outcomes = await asyncio.gather(*(hydrate(item) for item in items))
-
-        kept = [item for item, usable in outcomes if usable]
-        removed = len(items) - len(kept)
-        if removed:
-            self.console.print(
-                f"[yellow]{self.icons['warning']} Dropped {removed} final items "
-                "without usable original content.[/yellow]\n"
-            )
-        return kept
-
-    def _annotate_digest_depth(self, items: List[ContentItem]) -> None:
-        for rank, item in enumerate(items, start=1):
-            item.metadata["digest_rank"] = rank
-            if rank <= self.config.digest.deep_items:
-                item.metadata["summary_depth"] = "deep"
-                item.metadata["summary_length_zh"] = "300-500å­—"
-            else:
-                item.metadata["summary_depth"] = "brief"
-                item.metadata["summary_length_zh"] = "100-180å­—"
-
-    def _write_run_metrics(
-        self,
-        *,
-        date: str,
-        fetched_count: int,
-        merged_count: int,
-        history_removed: int,
-        candidate_count: int,
-        analyzed_count: int,
-        analyzed_items: List[ContentItem],
-        threshold_count: int,
-        selected_items: List[ContentItem],
-        usage,
-        dry_run: bool,
-    ) -> None:
-        """Write public run metrics without URLs, content, or secret values."""
-        if not self.config.metrics.enabled:
-            return
-
-        profile_counts: Dict[str, int] = defaultdict(int)
-        region_counts: Dict[str, int] = defaultdict(int)
-        practice_counts: Dict[str, int] = defaultdict(int)
-        for item in selected_items:
-            profile = (
-                item.processing.classification.profile
-                if item.processing
-                else "unclassified"
-            )
-            profile_counts[profile] += 1
-            region_counts[str(item.metadata.get("region") or "global")] += 1
-            practice_counts[
-                str(item.metadata.get("practice_category") or "unclassified")
-            ] += 1
-
-        score_buckets: Dict[str, int] = defaultdict(int)
-        analyzed_practice_counts: Dict[str, int] = defaultdict(int)
-        actionable_count = 0
-        practice_gate_capped = 0
-        numeric_scores: List[float] = []
-        for item in analyzed_items:
-            analysis = item.processing.analysis if item.processing else None
-            score = analysis.score if analysis else None
-            if score is None:
-                score_buckets["missing"] += 1
-                continue
-            numeric_scores.append(score)
-            lower = int(score)
-            bucket = "10" if lower >= 10 else f"{lower}-{lower + 0.9:.1f}"
-            score_buckets[bucket] += 1
-            practice = (
-                analysis.practice_category
-                or item.metadata.get("practice_category")
-                or "unclassified"
-            )
-            analyzed_practice_counts[str(practice)] += 1
-            if analysis.actionable_within_7_days:
-                actionable_count += 1
-            if "score capped at 5.9" in analysis.reason:
-                practice_gate_capped += 1
-
-        input_rate = self.config.metrics.input_cost_per_million_usd
-        output_rate = self.config.metrics.output_cost_per_million_usd
-        estimated_cost = None
-        if input_rate is not None and output_rate is not None:
-            estimated_cost = round(
-                usage.total_input_tokens / 1_000_000 * input_rate
-                + usage.total_output_tokens / 1_000_000 * output_rate,
-                6,
-            )
-
-        source_metrics = []
-        if self.last_fetch_report:
-            source_metrics = [
-                {
-                    "source": outcome.source_name,
-                    "status": outcome.status,
-                    "item_count": len(outcome.items),
-                }
-                for outcome in self.last_fetch_report.outcomes
-            ]
-
-        payload = {
-            "date": date,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "dry_run": dry_run,
-            "pipeline": {
-                "fetched": fetched_count,
-                "url_duplicates_removed": fetched_count - merged_count,
-                "history_duplicates_removed": history_removed,
-                "model_candidates": candidate_count,
-                "model_scored": analyzed_count,
-                "above_threshold": threshold_count,
-                "selected": len(selected_items),
-            },
-            "selection": {
-                "profiles": dict(profile_counts),
-                "regions": dict(region_counts),
-                "practice_categories": dict(practice_counts),
-                "deep_items": min(
-                    len(selected_items), self.config.digest.deep_items
-                ),
-                "brief_items": max(
-                    0, len(selected_items) - self.config.digest.deep_items
-                ),
-            },
-            "analysis": {
-                "numeric_scores": len(numeric_scores),
-                "score_buckets": dict(sorted(score_buckets.items())),
-                "top_scores": sorted(numeric_scores, reverse=True)[:10],
-                "actionable_within_7_days": actionable_count,
-                "practice_gate_capped": practice_gate_capped,
-                "practice_categories": dict(analyzed_practice_counts),
-            },
-            "sources": source_metrics,
-            "model": {
-                "provider": self.config.ai.provider.value,
-                "model": self.config.ai.model,
-                "input_tokens": usage.total_input_tokens,
-                "output_tokens": usage.total_output_tokens,
-                "total_tokens": usage.total_tokens,
-                "estimated_cost_usd": estimated_cost,
-                "pricing_configured": estimated_cost is not None,
-                "pricing_note": self.config.metrics.pricing_note,
-            },
-        }
-
-        output_dir = Path(self.config.metrics.output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        serialized = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
-        _atomic_write_text(output_dir / f"{date}.json", serialized)
-        _atomic_write_text(output_dir / "latest.json", serialized)
-
-    def _determine_time_window(self, force_hours: int = None) -> datetime:
-        if force_hours:
-            since = datetime.now(timezone.utc) - timedelta(hours=force_hours)
-        else:
-            hours = self.config.collection.time_window_hours
-            since = datetime.now(timezone.utc) - timedelta(hours=hours)
-        return since
-
-    @staticmethod
-    def ensure_analysis_health(
-        analyzed_items: List[ContentItem],
-        min_success_ratio: float = 0.8,
-    ) -> None:
-        """Abort delivery when model scoring failed for too many candidates."""
-        if not analyzed_items:
-            return
-        valid_scores = sum(
-            1
-            for item in analyzed_items
-            if item.processing
-            and item.processing.analysis
-            and item.processing.analysis.score is not None
-        )
-        required = max(1, math.ceil(len(analyzed_items) * min_success_ratio))
-        if valid_scores < required:
-            raise RuntimeError(
-                "AI analysis health check failed: "
-                f"{valid_scores}/{len(analyzed_items)} candidates received valid scores; "
-                f"at least {required} are required. Delivery aborted."
-            )
-
-    async def fetch_all_sources(self, since: datetime) -> List[ContentItem]:
-        """Fetch content from all configured sources.
-
-        This is a stable stage entry point for integrations such as MCP.
-
-        Args:
-            since: Fetch items published after this time
-
-        Returns:
-            List[ContentItem]: All fetched items
-        """
-        self.last_fetch_report = None
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            tasks = []
-
-            # GitHub sources
-            if self.config.sources.github:
-                github_scraper = GitHubScraper(self.config.sources.github, client)
-                tasks.append(self._fetch_with_progress("GitHub", github_scraper, since))
-
-            # Hacker News
-            if self.config.sources.hackernews.enabled:
-                hn_scraper = HackerNewsScraper(self.config.sources.hackernews, client)
-                tasks.append(self._fetch_with_progress("Hacker News", hn_scraper, since))
-
-            # RSS feeds
-            if self.config.sources.rss:
-                from .extractors import ExtractorRegistry
-                rss_scraper = RSSScraper(
-                    self.config.sources.rss,
-                    client,
-                    ExtractorRegistry(self.config.extractors),
-                )
-                tasks.append(self._fetch_with_progress("RSS Feeds", rss_scraper, since))
-
-            # Reddit
-            if self.config.sources.reddit.enabled:
-                reddit_scraper = RedditScraper(self.config.sources.reddit, client)
-                tasks.append(self._fetch_with_progress("Reddit", reddit_scraper, since))
-
-            # Telegram
-            if self.config.sources.telegram.enabled:
-                telegram_scraper = TelegramScraper(self.config.sources.telegram, client)
-                tasks.append(self._fetch_with_progress("Telegram", telegram_scraper, since))
-
-            # Twitter (Apify or Playwright mode)
-            if self.config.sources.twitter and self.config.sources.twitter.enabled:
-                tw_cfg = self.config.sources.twitter
-                if tw_cfg.mode == "playwright":
-                    twitter_scraper = TwitterPlaywrightScraper(tw_cfg)
-                else:
-                    twitter_scraper = TwitterScraper(tw_cfg, client)
-                tasks.append(self._fetch_with_progress("Twitter", twitter_scraper, since))
-
-            # OpenBB (financial news / filings via the OpenBB Platform SDK)
-            if self.config.sources.openbb and self.config.sources.openbb.enabled:
-                openbb_scraper = OpenBBScraper(self.config.sources.openbb, client)
-                tasks.append(self._fetch_with_progress("OpenBB", openbb_scraper, since))
-
-            # OSS Insight trending repos
-            if self.config.sources.ossinsight and self.config.sources.ossinsight.enabled:
-                oss_scraper = OSSInsightScraper(self.config.sources.ossinsight, client)
-                tasks.append(self._fetch_with_progress("OSS Insight", oss_scraper, since))
-
-            # GDELT 2.0 DOC API (key-less global news)
-            if self.config.sources.gdelt and self.config.sources.gdelt.enabled:
-                gdelt_scraper = GDELTScraper(self.config.sources.gdelt, client)
-                tasks.append(self._fetch_with_progress("GDELT", gdelt_scraper, since))
-
-            # Google News RSS (key-less news search). A single legacy object and
-            # the newer multi-query array are both normalized by SourcesConfig.
-            google_news_queries = getattr(
-                self.config.sources, "google_news_queries", None
-            )
-            if callable(google_news_queries):
-                normalized_google_news = google_news_queries()
-            else:
-                legacy_google_news = getattr(
-                    self.config.sources, "google_news", None
-                )
-                normalized_google_news = (
-                    legacy_google_news
-                    if isinstance(legacy_google_news, list)
-                    else [legacy_google_news] if legacy_google_news else []
-                )
-            for index, gn_config in enumerate(normalized_google_news, start=1):
-                if not gn_config.enabled:
-                    continue
-                gn_scraper = GoogleNewsScraper(gn_config, client)
-                tasks.append(
-                    self._fetch_with_progress(
-                        f"Google News [{index}: {gn_config.query[:36]}]",
-                        gn_scraper,
-                        since,
-                    )
-                )
-
-            # Hugging Face Daily Papers (public, no API key).
-            hf_papers_config = getattr(self.config.sources, "hf_papers", None)
-            if hf_papers_config and hf_papers_config.enabled:
-                hf_papers_scraper = HuggingFacePapersScraper(
-                    hf_papers_config, client
-                )
-                tasks.append(
-                    self._fetch_with_progress(
-                        "Hugging Face Daily Papers", hf_papers_scraper, since
-                    )
-                )
-
-            # Fetch all concurrently
-            outcomes = await asyncio.gather(*tasks)
-            self.last_fetch_report = FetchReport(outcomes=list(outcomes))
-
-            # Flatten successful and empty outcomes; failures remain in the report.
-            all_items: List[ContentItem] = []
-            for outcome in outcomes:
-                all_items.extend(outcome.items)
-
-            return all_items
-
-    async def _fetch_with_progress(
-        self, name: str, scraper, since: datetime
-    ) -> SourceFetchOutcome:
-        """Fetch from a scraper with progress indication.
-
-        Args:
-            name: Source name for display
-            scraper: Scraper instance
-            since: Fetch items after this time
-
-        Returns:
-            SourceFetchOutcome: Named fetch result and diagnostics
-        """
-        self.console.print(f"{self.icons['fetch']} Fetching from {name}...")
-        try:
-            items = await scraper.fetch(since)
-        except Exception as exc:
-            error = f"{type(exc).__name__}: {exc}"
-            self.console.print(f"[red]   Failed to fetch {name}: {error}[/red]")
-            return SourceFetchOutcome(
-                source_name=name,
-                status="failure",
-                error=error,
-            )
-
-        self.console.print(f"   Found {len(items)} items from {name}")
-
-        # Show per-sub-source breakdown when there are multiple sub-sources
-        sub_counts: Dict[str, int] = defaultdict(int)
-        for item in items:
-            sub_counts[self._sub_source_label(item)] += 1
-        if len(sub_counts) > 1:
-            for sub, count in sorted(sub_counts.items()):
-                self.console.print(f"      {self.icons['detail']} {sub}: {count}")
-
-        return SourceFetchOutcome(
-            source_name=name,
-            status="success" if items else "empty",
-            items=items,
-        )
-
-    @staticmethod
-    def _sub_source_label(item: ContentItem) -> str:
-        """Return a human-readable sub-source label for an item."""
-        meta = item.metadata
-        if meta.get("subreddit"):
-            return f"r/{meta['subreddit']}"
-        if meta.get("feed_name"):
-            return meta["feed_name"]
-        if meta.get("channel"):
-            return f"@{meta['channel']}"
-        if meta.get("period") and meta.get("repo"):
-            return f"ossinsight:{meta.get('primary_language', 'all')}"
-        if meta.get("repo"):
-            return meta["repo"]
-        if meta.get("watchlist"):
-            return meta["watchlist"]
-        if meta.get("source_name"):
-            return meta["source_name"]
-        if meta.get("gn_query"):
-            return f"google_news:{meta['gn_query']}"
-        if meta.get("domain"):
-            return meta["domain"]
-        return item.author or "unknown"
-
-    def merge_cross_source_duplicates(self, items: List[ContentItem]) -> List[ContentItem]:
-        """Merge items that point to the same URL from different sources.
-
-        This is a stable stage helper for integrations such as MCP.
-
-        Keeps the item with the richest content and combines metadata.
-
-        Args:
-            items: Items to deduplicate
-
-        Returns:
-            List[ContentItem]: Deduplicated items
-        """
-        # Group by normalized URL
-        url_groups: Dict[tuple[object, ...], List[ContentItem]] = {}
-        for item in items:
-            if isinstance(item.profile, list):
-                requested_profile: object = tuple(
-                    profile_id.strip() for profile_id in item.profile
-                )
-            else:
-                requested_profile = (item.profile or "auto").strip() or "auto"
-            key = (*_deduplication_url_key(str(item.url)), requested_profile)
-            url_groups.setdefault(key, []).append(item)
-
-        merged = []
-        for group in url_groups.values():
-            group_copies = [item.model_copy(deep=True) for item in group]
-            if len(group) == 1:
-                merged.append(group_copies[0])
-                continue
-
-            # Pick the item with the richest content as primary
-            primary = max(group_copies, key=lambda x: len(x.content or ""))
-
-            # Merge metadata and source info from other items
-            all_sources = []
-            for item in group_copies:
-                if item.source_type.value not in all_sources:
-                    all_sources.append(item.source_type.value)
-                # Merge metadata (engagement, discussion, etc.)
-                for mk, mv in item.metadata.items():
-                    if mk not in primary.metadata or not primary.metadata[mk]:
-                        primary.metadata[mk] = mv
-
-                # Append content (e.g., comments from another source)
-                if item is not primary and item.content:
-                    if primary.content and item.content not in primary.content:
-                        primary.content = (primary.content or "") + f"\n\n--- From {item.source_type.value} ---\n" + item.content
-
-            primary.metadata["merged_sources"] = all_sources
-            merged.append(primary)
-
-        return merged
-
-    async def merge_topic_duplicates(
-        self,
-        items: List[ContentItem],
-        *,
-        log: bool = True,
-    ) -> List[ContentItem]:
-        """Merge items covering the same topic using AI semantic deduplication.
-
-        This is a stable stage helper for integrations such as MCP.
-
-        Sends all item titles, tags, and summaries to AI in a single call.
-        Items must already be sorted by analysis score descending so that the first
-        item in each duplicate group is always the highest-scored one.
-        Content (comments) from duplicate items is merged into the primary.
-
-        Falls back to returning items unchanged if the AI call fails.
-        """
-        if len(items) <= 1:
-            return items
-
-        from .ai.prompting.deduplication import TOPIC_DEDUP_SYSTEM, TOPIC_DEDUP_USER
-        from .ai.utils import parse_json_response
-
-        # Build the item list for the prompt
-        lines = []
-        for i, item in enumerate(items):
-            analysis = item.processing.analysis if item.processing else None
-            tags = ", ".join(analysis.tags) if analysis and analysis.tags else "â€”"
-            summary = analysis.summary if analysis else "â€”"
-            lines.append(f"[{i}] {item.title}\n    Tags: {tags}\n    Summary: {summary}")
-        items_text = "\n\n".join(lines)
-
-        try:
-            ai_client = create_ai_client(self.config.ai)
-            response = await ai_client.complete(
-                system=TOPIC_DEDUP_SYSTEM,
-                user=TOPIC_DEDUP_USER.format(items=items_text),
-            )
-            result = parse_json_response(response)
-            if result is None:
-                if log:
-                    self.console.print("[yellow]  dedup: could not parse AI response, skipping[/yellow]")
-                return items
-
-            duplicate_groups = result.get("duplicates", [])
-        except Exception as e:
-            if log:
-                self.console.print(f"[yellow]  dedup: AI call failed ({e}), skipping[/yellow]")
-            return items
-
-        if not duplicate_groups:
-            return items
-
-        # Build a set of indices to drop (all non-primary duplicates)
-        drop_indices: set[int] = set()
-        for group in duplicate_groups:
-            if not isinstance(group, list) or len(group) < 2:
-                continue
-            primary_idx = group[0]
-            if primary_idx < 0 or primary_idx >= len(items):
-                continue
-            primary = items[primary_idx]
-            for dup_idx in group[1:]:
-                if not isinstance(dup_idx, int) or dup_idx < 0 or dup_idx >= len(items):
-                    continue
-                if dup_idx == primary_idx:
-                    continue
-                dup = items[dup_idx]
-                # Merge comments/content from the duplicate into the primary
-                if dup.content:
-                    if not primary.content or dup.content not in primary.content:
-                        label = dup.source_type.value
-                        primary.content = (primary.content or "") + f"\n\n--- From {label} ---\n{dup.content}"
-                if log:
-                    self.console.print(
-                        f"   [dim]dedup: keep [{primary_idx}] {primary.title}[/dim]\n"
-                        f"   [dim]       drop [{dup_idx}] {dup.title}[/dim]"
-                    )
-                drop_indices.add(dup_idx)
-
-        return [item for i, item in enumerate(items) if i not in drop_indices]
-
-    async def filter_items(
-        self,
-        items: List[ContentItem],
-        *,
-        threshold: Optional[float] = None,
-        topic_dedup: bool = True,
-        apply_balance: bool = True,
-        log: bool = True,
-    ) -> FilteringPipelineResult:
-        """Apply score thresholding, optional topic dedup, and digest balancing."""
-        threshold_items = []
-        for item in items:
-            if self.passes_profile_filter(item, threshold):
-                threshold_items.append(item)
-        threshold_items.sort(
-            key=lambda item: (
-                item.processing.analysis.score
-                if item.processing and item.processing.analysis and item.processing.analysis.score is not None
-                else -1
-            ),
-            reverse=True,
-        )
-
-        if log:
-            self.console.print(
-                f"{self.icons['filter']} Selected {len(threshold_items)} items "
-                "with profile filters\n"
-            )
-
-        deduped_items = threshold_items
-        if topic_dedup and deduped_items:
-            profile_groups: Dict[str, List[ContentItem]] = defaultdict(list)
-            for item in deduped_items:
-                profile_id = (
-                    item.processing.classification.profile
-                    if item.processing
-                    else self.profiles.default_profile
-                )
-                profile_groups[profile_id].append(item)
-            deduped_items = []
-            for profile_id, profile_items in profile_groups.items():
-                settings = self.config.processing.profile_settings.get(profile_id)
-                if settings is None or settings.topic_dedup:
-                    deduped_items.extend(
-                        await self.merge_topic_duplicates(profile_items, log=log)
-                    )
-                else:
-                    deduped_items.extend(profile_items)
-            deduped_items.sort(
-                key=lambda item: (
-                    item.processing.analysis.score
-                    if item.processing
-                    and item.processing.analysis
-                    and item.processing.analysis.score is not None
-                    else -1
-                ),
-                reverse=True,
-            )
-        topic_dedup_removed = len(threshold_items) - len(deduped_items)
-
-        if log and topic_dedup_removed:
-            self.console.print(
-                f"{self.icons['cleanup']} Removed {topic_dedup_removed} topic duplicates "
-                f"â†’ {len(deduped_items)} unique items\n"
-            )
-
-        balanced_digest = (
-            self.apply_balanced_digest(deduped_items, log=log)
-            if apply_balance
-            else BalancedDigestResult(items=deduped_items)
-        )
-        return FilteringPipelineResult(
-            items=balanced_digest.items,
-            threshold_count=len(threshold_items),
-            topic_dedup_count=len(deduped_items),
-            topic_dedup_removed=topic_dedup_removed,
-            balanced_digest=balanced_digest,
-        )
-
-    async def select_digest_items(
-        self,
-        items: List[ContentItem],
-        *,
-        threshold: Optional[float] = None,
-        topic_dedup: bool = True,
-        log: bool = True,
-    ) -> FilteringPipelineResult:
-        """Select final digest items using the same stages for every entry point."""
-        initial = await self.filter_items(
-            items,
-            threshold=threshold,
-            topic_dedup=topic_dedup,
-            apply_balance=False,
-            log=log,
-        )
-        candidates = initial.items
-        await self._expand_twitter_discussion(candidates)
-
-        # Targeted re-analysis can lower a score, so reapply profile filters.
-        eligible = [
-            item
-            for item in candidates
-            if self.passes_profile_filter(item, threshold)
-        ]
-        eligible.sort(
-            key=lambda item: (
-                item.processing.analysis.score
-                if item.processing
-                and item.processing.analysis
-                and item.processing.analysis.score is not None
-                else -1
-            ),
-            reverse=True,
-        )
-        balanced = self.apply_balanced_digest(eligible, log=log)
-        selected_ids = {item.id for item in balanced.items}
-        reserve_items = [
-            item for item in eligible if item.id not in selected_ids
-        ][: self.config.digest.fulltext_reserve]
-        return FilteringPipelineResult(
-            items=balanced.items,
-            threshold_count=initial.threshold_count,
-            topic_dedup_count=initial.topic_dedup_count,
-            topic_dedup_removed=initial.topic_dedup_removed,
-            balanced_digest=balanced,
-            eligible_count=len(eligible),
-            reserve_items=reserve_items,
-        )
-
-    def passes_profile_filter(
-        self,
-        item: ContentItem,
-        threshold: Optional[float] = None,
-    ) -> bool:
-        if not item.processing or not item.processing.analysis:
-            return False
-        profile_id = item.processing.classification.profile
-        settings = self.config.processing.profile_settings.get(profile_id)
-        effective_threshold = threshold
-        if effective_threshold is None and settings is not None:
-            effective_threshold = settings.threshold
-        if effective_threshold is None:
-            return True
-        score = item.processing.analysis.score
-        return score is not None and score >= effective_threshold
-
-    def apply_balanced_digest(
-        self,
-        items: List[ContentItem],
-        *,
-        log: bool = True,
-    ) -> BalancedDigestResult:
-        """Apply configured category quotas and the final item cap.
-
-        Categories are read from ``item.metadata["category"]``. If a category
-        appears in more than one configured group, the first group in config
-        order wins.
-        """
-        digest = self.config.digest
-        groups = digest.category_groups
-        max_items = digest.max_items
-
-        if (
-            digest.practice_targets
-            or digest.matrix_targets
-            or digest.profile_targets
-            or digest.region_targets
-        ):
-            return self._apply_targeted_digest(items, log=log)
-
-        if not groups and max_items is None:
-            return BalancedDigestResult(items=items)
-
-        sorted_items = sorted(
-            items,
-            key=lambda item: (
-                item.processing.analysis.score
-                if item.processing and item.processing.analysis and item.processing.analysis.score is not None
-                else -1
-            ),
-            reverse=True,
-        )
-
-        category_to_group: Dict[str, str] = {}
-        duplicate_categories: List[str] = []
-        for group_key, group in groups.items():
-            for category in group.categories:
-                if category in category_to_group:
-                    if category_to_group[category] != group_key:
-                        duplicate_categories.append(category)
-                    continue
-                category_to_group[category] = group_key
-
-        if log:
-            for category in sorted(set(duplicate_categories)):
-                first_group = category_to_group[category]
-                self.console.print(
-                    f"[yellow]Warning: category '{category}' is configured in multiple "
-                    f"groups; using '{first_group}'.[/yellow]"
-                )
-
-        selected: List[tuple[ContentItem, str]] = []
-        group_counts: Dict[str, int] = defaultdict(int)
-        default_group = digest.default_group
-
-        for item in sorted_items:
-            category = item.metadata.get("category")
-            group_key = (
-                category_to_group.get(category, default_group)
-                if isinstance(category, str)
-                else default_group
-            )
-
-            if group_key in groups:
-                limit = groups[group_key].limit
-            else:
-                limit = digest.default_group_limit
-
-            if limit is not None and group_counts[group_key] >= limit:
-                continue
-
-            selected.append((item, group_key))
-            group_counts[group_key] += 1
-
-        if max_items is not None:
-            selected = selected[:max_items]
-
-        final_counts: Dict[str, int] = defaultdict(int)
-        for _, group_key in selected:
-            final_counts[group_key] += 1
-
-        group_limits: Dict[str, Optional[int]] = {
-            group_key: group.limit for group_key, group in groups.items()
-        }
-        group_limits.setdefault(default_group, digest.default_group_limit)
-
-        if log:
-            self.console.print(
-                f"{self.icons['balance']} Balanced digest selected "
-                f"{len(selected)}/{len(items)} items"
-            )
-            for group_key, group in groups.items():
-                label = group.name or group_key
-                self.console.print(
-                    f"      {self.icons['detail']} {label}: "
-                    f"{final_counts.get(group_key, 0)}/{group.limit}"
-                )
-            if (
-                final_counts.get(default_group, 0)
-                or digest.default_group_limit is not None
-            ):
-                limit_label = (
-                    str(digest.default_group_limit)
-                    if digest.default_group_limit is not None
-                    else "unlimited"
-                )
-                self.console.print(
-                    f"      {self.icons['detail']} {default_group}: "
-                    f"{final_counts.get(default_group, 0)}/{limit_label}"
-                )
-            self.console.print("")
-
-        return BalancedDigestResult(
-            items=[item for item, _ in selected],
-            enabled=True,
-            group_counts=dict(final_counts),
-            group_limits=group_limits,
-            duplicate_categories=sorted(set(duplicate_categories)),
-        )
-
-    def _apply_targeted_digest(
-        self,
-        items: List[ContentItem],
-        *,
-        log: bool = True,
-    ) -> BalancedDigestResult:
-        """Fill practice or legacy targets, then backfill with quality items.
-
-        Practice-pillar quotas are the strongest constraint when configured.
-        Every candidate has already passed the profile threshold, so backfill
-        cannot introduce low-quality filler. Source and category caps keep one
-        vendor or raw-paper feed from dominating the result.
-        """
-        digest = self.config.digest
-        sorted_items = sorted(
-            items,
-            key=lambda item: (
-                item.processing.analysis.score
-                if item.processing
-                and item.processing.analysis
-                and item.processing.analysis.score is not None
-                else -1
-            ),
-            reverse=True,
-        )
-        limit = digest.max_items or len(sorted_items)
-        selected: List[ContentItem] = []
-        selected_ids: set[str] = set()
-        matrix_counts: Dict[str, int] = defaultdict(int)
-        profile_counts: Dict[str, int] = defaultdict(int)
-        region_counts: Dict[str, int] = defaultdict(int)
-        practice_counts: Dict[str, int] = defaultdict(int)
-        source_counts: Dict[str, int] = defaultdict(int)
-        product_source_counts: Dict[str, int] = defaultdict(int)
-        group_counts: Dict[str, int] = defaultdict(int)
-
-        category_to_group: Dict[str, str] = {}
-        for group_key, group in digest.category_groups.items():
-            for category in group.categories:
-                category_to_group.setdefault(category, group_key)
-
-        def dimensions(item: ContentItem) -> tuple[str, str, str, str]:
-            region = str(item.metadata.get("region") or "global")
-            profile = (
-                item.processing.classification.profile
-                if item.processing
-                else self.profiles.default_profile
-            )
-            analysis = item.processing.analysis if item.processing else None
-            practice = (
-                analysis.practice_category
-                if analysis and analysis.practice_category
-                else str(item.metadata.get("practice_category") or "unclassified")
-            )
-            return region, profile, f"{region}/{profile}", practice
-
-        def source_key(item: ContentItem) -> str:
-            hostname = (urlsplit(str(item.url)).hostname or "unknown").casefold()
-            return hostname.removeprefix("www.")
-
-        def group_key(item: ContentItem) -> Optional[str]:
-            category = item.metadata.get("category")
-            return category_to_group.get(category) if isinstance(category, str) else None
-
-        def can_add(item: ContentItem) -> bool:
-            _, _, _, practice = dimensions(item)
-            key = source_key(item)
-            if (
-                digest.max_items_per_source is not None
-                and source_counts[key] >= digest.max_items_per_source
-            ):
-                return False
-            if (
-                practice == "today-use"
-                and digest.max_today_use_per_source is not None
-                and product_source_counts[key] >= digest.max_today_use_per_source
-            ):
-                return False
-            item_group = group_key(item)
-            if item_group is not None:
-                limit_for_group = digest.category_groups[item_group].limit
-                if group_counts[item_group] >= limit_for_group:
-                    return False
-            return True
-
-        def add(item: ContentItem) -> None:
-            region, profile, matrix_key, practice = dimensions(item)
-            key = source_key(item)
-            selected.append(item)
-            selected_ids.add(item.id)
-            matrix_counts[matrix_key] += 1
-            profile_counts[profile] += 1
-            region_counts[region] += 1
-            practice_counts[practice] += 1
-            source_counts[key] += 1
-            if practice == "today-use":
-                product_source_counts[key] += 1
-            item_group = group_key(item)
-            if item_group is not None:
-                group_counts[item_group] += 1
-            item.metadata["practice_category"] = practice
-
-        if digest.practice_targets:
-            for practice, target in digest.practice_targets.items():
-                for item in sorted_items:
-                    if len(selected) >= limit or practice_counts[practice] >= target:
-                        break
-                    if item.id in selected_ids or not can_add(item):
-                        continue
-                    if dimensions(item)[3] == practice:
-                        add(item)
-        elif digest.matrix_targets:
-            for item in sorted_items:
-                if len(selected) >= limit:
-                    break
-                _, _, matrix_key, _ = dimensions(item)
-                target = digest.matrix_targets.get(matrix_key, 0)
-                if target and matrix_counts[matrix_key] < target and can_add(item):
-                    add(item)
-        else:
-            # Backward-compatible independent targets when no matrix is supplied.
-            for item in sorted_items:
-                if len(selected) >= limit:
-                    break
-                region, profile, _, _ = dimensions(item)
-                needs_profile = profile_counts[profile] < digest.profile_targets.get(
-                    profile, 0
-                )
-                needs_region = region_counts[region] < digest.region_targets.get(
-                    region, 0
-                )
-                if (needs_profile or needs_region) and can_add(item):
-                    add(item)
-
-        if digest.quality_fill and len(selected) < limit:
-            for item in sorted_items:
-                if len(selected) >= limit:
-                    break
-                if item.id not in selected_ids and can_add(item):
-                    add(item)
-
-        for rank, item in enumerate(selected, start=1):
-            item.metadata["digest_rank"] = rank
-            if rank <= digest.deep_items:
-                item.metadata["summary_depth"] = "deep"
-                item.metadata["summary_length_zh"] = "300-500å­—"
-            else:
-                item.metadata["summary_depth"] = "brief"
-                item.metadata["summary_length_zh"] = "100-180å­—"
-
-        if log:
-            self.console.print(
-                f"{self.icons['balance']} Targeted digest selected "
-                f"{len(selected)}/{len(items)} items"
-            )
-            for practice, target in digest.practice_targets.items():
-                self.console.print(
-                    f"      {self.icons['detail']} practice {practice}: "
-                    f"{practice_counts.get(practice, 0)}/{target}"
-                )
-            for matrix_key, target in digest.matrix_targets.items():
-                self.console.print(
-                    f"      {self.icons['detail']} {matrix_key}: "
-                    f"{matrix_counts.get(matrix_key, 0)}/{target}"
-                )
-            for profile, target in digest.profile_targets.items():
-                self.console.print(
-                    f"      {self.icons['detail']} profile {profile}: "
-                    f"{profile_counts.get(profile, 0)}/{target}"
-                )
-            for region, target in digest.region_targets.items():
-                self.console.print(
-                    f"      {self.icons['detail']} region {region}: "
-                    f"{region_counts.get(region, 0)}/{target}"
-                )
-            self.console.print("")
-
-        return BalancedDigestResult(
-            items=selected,
-            enabled=True,
-            profile_counts=dict(profile_counts),
-            region_counts=dict(region_counts),
-            matrix_counts=dict(matrix_counts),
-            practice_counts=dict(practice_counts),
-            group_counts=dict(group_counts),
-        )
-
-    async def _expand_twitter_discussion(self, items: List[ContentItem]) -> None:
-        """Second-stage: fetch reply text for important Twitter items and re-analyze.
-
-        Only runs when sources.twitter.fetch_reply_text is True.
-        Bounded by max_tweets_to_expand to control cost.
-        """
-        tw_cfg = self.config.sources.twitter
-        if not tw_cfg or not tw_cfg.enabled or not tw_cfg.fetch_reply_text:
-            return
-
-        from .models import SourceType
-
-        twitter_items = [
-            item for item in items
-            if item.source_type == SourceType.TWITTER
-        ][:tw_cfg.max_tweets_to_expand]
-
-        if not twitter_items:
-            return
-
-        self.console.print(
-            f"{self.icons['discussion']} Fetching reply text for "
-            f"{len(twitter_items)} Twitter items..."
-        )
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            if tw_cfg.mode == "playwright":
-                self.console.print(
-                    "   [yellow]Reply expansion not yet supported in Playwright mode.[/yellow]"
-                )
-                return
-            scraper = TwitterScraper(tw_cfg, client)
-            expanded = []
-            for item in twitter_items:
-                try:
-                    reply_lines = await scraper.fetch_replies_for_item(item)
-                    if TwitterScraper.append_discussion_content(item, reply_lines):
-                        expanded.append(item)
-                        self.console.print(
-                            f"   {self.icons['discussion']} {len(reply_lines)} replies "
-                            f"added to: {item.title[:60]}"
-                        )
-                except Exception as exc:
-                    self.console.print(
-                        f"   [yellow]{self.icons['warning']} Reply fetch failed for "
-                        f"{item.id}: {exc}[/yellow]"
-                    )
-
-        if not expanded:
-            return
-
-        self.console.print(
-            f"   Re-analyzing {len(expanded)} Twitter items with reply context...\n"
-        )
-        ai_client = create_ai_client(self.config.ai)
-        analyzer = ContentAnalyzer(ai_client, self.profiles, console=self.console)
-        await analyzer.analyze_batch(expanded)
-
-    async def enrich_items(self, items: List[ContentItem]) -> EnrichmentBatchResult:
-        """Enrich items with background knowledge (2nd AI pass).
-
-        For each item that passed the score threshold, call AI to generate
-        background knowledge based on the item's actual content.
-
-        Args:
-            items: Important items to enrich (modified in-place)
-        """
-        if not items:
-            return EnrichmentBatchResult()
-
-        self.console.print(
-            f"{self.icons['enrich']} Enriching with background knowledge..."
-        )
-        ai_client = create_ai_client(self.config.ai)
-        enricher = ContentEnricher(
-            ai_client,
-            self.profiles,
-            self.config.ai.languages,
-            console=self.console,
-        )
-        result = await enricher.enrich_batch(items)
-        self.console.print(
-            f"   Enriched {result.succeeded_count}/{len(items)} items"
-        )
-        if result.failed_count:
-            self.console.print(
-                f"   [yellow]Skipped {result.failed_count} items after enrichment "
-                f"failed: {', '.join(result.failed_ids)}[/yellow]"
-            )
-        self.console.print("")
-        return result
-
-    async def analyze_items(self, items: List[ContentItem]) -> List[ContentItem]:
-        """Analyze content items with AI.
-
-        Args:
-            items: Items to analyze
-
-        Returns:
-            List[ContentItem]: Analyzed items
-        """
-        self.console.print(f"{self.icons['ai']} Analyzing content with AI...")
-
-        ai_client = create_ai_client(self.config.ai)
-        analyzer = ContentAnalyzer(ai_client, self.profiles, console=self.console)
-
-        return await analyzer.analyze_batch(items)
-
-    async def _generate_summary(
-        self,
-        items: List[ContentItem],
-        date: str,
-        total_fetched: int,
-        language: str = "en",
-    ) -> str:
-        """Generate daily summary.
-
-        Args:
-            items: Important items to include (already enriched with background/related)
-            date: Date string
-            total_fetched: Total items fetched
-            language: Output language ("en" or "zh")
-
-        Returns:
-            str: Markdown summary
-        """
-        self.console.print(f"{self.icons['summary']} Generating daily summary...")
-
-        summarizer = DailySummarizer(
-            profile_names=self.profiles.names,
-            profile_order=self.config.digest.profile_order,
-        )
-
-        return await summarizer.generate_summary(items, date, total_fetched, language=language)
+                f"{since.strftime('%Y-%m-×ÎøöÚ$z{-®éÜj×–Ö—B—2æ÷BæöæRæBw&÷Wö6÷VçG5¶w&÷Wö¶W•ÒãÒÆ–Ö—C Ğ¢6öçF–çVPĞ Ğ¢6VÆV7FVBæVæB‚†—FVÒÂw&÷Wö¶W’’Ğ¢w&÷Wö6÷VçG5¶w&÷Wö¶W•Ò³ÒĞ Ğ¢–bÖ…ö—FV×2—2æ÷BæöæS Ğ¢6VÆV7FVBÒ6VÆV7FVE³¦Ö…ö—FV×5ĞĞ Ğ¢f–æÅö6÷VçG3¢F–7E·7G"Â–çEÒÒFVfVÇFF–7B†–çBĞ¢f÷"òÂw&÷Wö¶W’–â6VÆV7FVC Ğ¢f–æÅö6÷VçG5¶w&÷Wö¶W•Ò³ÒĞ Ğ¢w&÷WöÆ–Ö—G3¢F–7E·7G"Â÷F–öæÅ¶–çEÕÒÒ°Ğ¢w&÷Wö¶W“¢w&÷WæÆ–Ö—Bf÷"w&÷Wö¶W’Âw&÷W–âw&÷W2æ—FV×2‚Ğ¢ĞĞ¢w&÷WöÆ–Ö—G2ç6WFFVfVÇB†FVfVÇEöw&÷WÂF–vW7BæFVfVÇEöw&÷WöÆ–Ö—BĞ Ğ¢–bÆös Ğ¢6VÆbæ6öç6öÆRç&–çB€Ğ¢b'·6VÆbæ–6öç5²v&Ææ6Ru×Ò&Ææ6VBF–vW7B6VÆV7FVB Ğ¢b'¶ÆVâ‡6VÆV7FVB—Ò÷¶ÆVâ†—FV×2—Ò—FV×2 Ğ¢Ğ¢f÷"w&÷Wö¶W’Âw&÷W–âw&÷W2æ—FV×2‚“ Ğ¢Æ&VÂÒw&÷WææÖR÷"w&÷Wö¶WĞ¢6VÆbæ6öç6öÆRç&–çB€Ğ¢b"·6VÆbæ–6öç5²vFWF–Âu×Ò¶Æ&VÇÓ¢ Ğ¢b'¶f–æÅö6÷VçG2ævWB†w&÷Wö¶W’Â—Ò÷¶w&÷WæÆ–Ö—GÒ Ğ¢Ğ¢–b€Ğ¢f–æÅö6÷VçG2ævWB†FVfVÇEöw&÷WÂĞ¢÷"F–vW7BæFVfVÇEöw&÷WöÆ–Ö—B—2æ÷BæöæPĞ¢“ Ğ¢Æ–Ö—EöÆ&VÂÒ€Ğ¢7G"†F–vW7BæFVfVÇEöw&÷WöÆ–Ö—BĞ¢–bF–vW7BæFVfVÇEöw&÷WöÆ–Ö—B—2æ÷BæöæPĞ¢VÇ6R'VæÆ–Ö—FVB Ğ¢Ğ¢6VÆbæ6öç6öÆRç&–çB€Ğ¢b"·6VÆbæ–6öç5²vFWF–Âu×Ò¶FVfVÇEöw&÷WÓ¢ Ğ¢b'¶f–æÅö6÷VçG2ævWB†FVfVÇEöw&÷WÂ—Ò÷¶Æ–Ö—EöÆ&VÇÒ Ğ¢Ğ¢6VÆbæ6öç6öÆRç&–çB‚""Ğ Ğ¢&WGW&â&Ææ6VDF–vW7E&W7VÇB€¢—FV×3Õ¶—FVÒf÷"—FVÒÂò–â6VÆV7FVEÒÀĞ¢Væ&ÆVCÕG'VRÀĞ¢w&÷Wö6÷VçG3ÖF–7B†f–æÅö6÷VçG2’ÀĞ¢w&÷WöÆ–Ö—G3Öw&÷WöÆ–Ö—G2ÀĞ¢GWÆ–6FUö6FVv÷&–W3×6÷'FVB‡6WB†GWÆ–6FUö6FVv÷&–W2’’À¢ ¢FVböÇ•÷F&vWFVEöF–vW7B€¢6VÆbÀ¢—FV×3¢Æ—7E´6öçFVçD—FVÕÒÀ¢¢À¢Æös¢&ööÂÒG'VRÀ¢’Óâ&Ææ6VDF–vW7E&W7VÇC ¢""$f–ÆÂ&7F–6R÷"ÆVv7’F&vWG2ÂF†Vâ&6¶f–ÆÂv—F‚VÆ—G’—FV×2à ¢&7F–6R×–ÆÆ"V÷F2&RF†R7G&öævW7B6öç7G&–çBv†Vâ6öæf–wW&VBà¢WfW'’6æF–FFR†2Ç&VG’76VBF†R&öf–ÆRF‡&W6†öÆBÂ6ò&6¶f–ÆÀ¢6ææ÷B–çG&öGV6RÆ÷r×VÆ—G’f–ÆÆW"â6÷W&6RæB6FVv÷'’62¶VWöæP¢fVæF÷"÷"&r×W"fVVBg&öÒFöÖ–æF–ærF†R&W7VÇBà¢"" ¢F–vW7BÒ6VÆbæ6öæf–ræF–vW7@¢6÷'FVEö—FV×2Ò6÷'FVB€¢—FV×2À¢¶W“ÖÆÖ&F—FVÓ¢€¢—FVÒç&ö6W76–ærææÇ—6—2ç66÷&P¢–b—FVÒç&ö6W76–æp¢æB—FVÒç&ö6W76–ærææÇ—6—0¢æB—FVÒç&ö6W76–ærææÇ—6—2ç66÷&R—2æ÷BæöæP¢VÇ6RÓ¢’À¢&WfW'6SÕG'VRÀ¢¢Æ–Ö—BÒF–vW7BæÖ…ö—FV×2÷"ÆVâ‡6÷'FVEö—FV×2¢6VÆV7FVC¢Æ—7E´6öçFVçD—FVÕÒÒµĞ¢6VÆV7FVEö–G3¢6WE·7G%ÒÒ6WB‚¢ÖG&—…ö6÷VçG3¢F–7E·7G"Â–çEÒÒFVfVÇFF–7B†–çB¢&öf–ÆUö6÷VçG3¢F–7E·7G"Â–çEÒÒFVfVÇFF–7B†–çB¢&Vv–öåö6÷VçG3¢F–7E·7G"Â–çEÒÒFVfVÇFF–7B†–çB¢&7F–6Uö6÷VçG3¢F–7E·7G"Â–çEÒÒFVfVÇFF–7B†–çB¢6÷W&6Uö6÷VçG3¢F–7E·7G"Â–çEÒÒFVfVÇFF–7B†–çB¢&öGV7E÷6÷W&6Uö6÷VçG3¢F–7E·7G"Â–çEÒÒFVfVÇFF–7B†–çB¢w&÷Wö6÷VçG3¢F–7E·7G"Â–çEÒÒFVfVÇFF–7B†–çB ¢6FVv÷'•÷Fõöw&÷W¢F–7E·7G"Â7G%ÒÒ·Ğ¢f÷"w&÷Wö¶W’Âw&÷W–âF–vW7Bæ6FVv÷'•öw&÷W2æ—FV×2‚“ ¢f÷"6FVv÷'’–âw&÷Wæ6FVv÷&–W3 ¢6FVv÷'•÷Fõöw&÷Wç6WFFVfVÇB†6FVv÷'’Âw&÷Wö¶W’ ¢FVbF–ÖVç6–öç2†—FVÓ¢6öçFVçD—FVÒ’ÓâGWÆU·7G"Â7G"Â7G"Â7G%Ó ¢&Vv–öâÒ7G"†—FVÒæÖWFFFævWB‚'&Vv–öâ"’÷"&vÆö&Â"¢&öf–ÆRÒ€¢—FVÒç&ö6W76–æræ6Æ76–f–6F–öâç&öf–ÆP¢–b—FVÒç&ö6W76–æp¢VÇ6R6VÆbç&öf–ÆW2æFVfVÇE÷&öf–ÆP¢¢æÇ—6—2Ò—FVÒç&ö6W76–ærææÇ—6—2–b—FVÒç&ö6W76–ærVÇ6RæöæP¢&7F–6RÒ€¢æÇ—6—2ç&7F–6Uö6FVv÷'¢–bæÇ—6—2æBæÇ—6—2ç&7F–6Uö6FVv÷'¢VÇ6R7G"†—FVÒæÖWFFFævWB‚'&7F–6Uö6FVv÷'’"’÷"'Væ6Æ76–f–VB"¢¢&WGW&â&Vv–öâÂ&öf–ÆRÂb'·&Vv–öçÒ÷·&öf–ÆWÒ"Â&7F–6P ¢FVb6÷W&6Uö¶W’†—FVÓ¢6öçFVçD—FVÒ’Óâ7G# ¢†÷7FæÖRÒ‡W&Ç7Æ—B‡7G"†—FVÒçW&Â’’æ†÷7FæÖR÷"'Væ¶æ÷vâ"’æ66VföÆB‚¢&WGW&â†÷7FæÖRç&VÖ÷fW&Vf—‚‚'wwrâ" ¢FVbw&÷Wö¶W’†—FVÓ¢6öçFVçD—FVÒ’Óâ÷F–öæÅ·7G%Ó ¢6FVv÷'’Ò—FVÒæÖWFFFævWB‚&6FVv÷'’"¢&WGW&â6FVv÷'•÷Fõöw&÷WævWB†6FVv÷'’’–b—6–ç7Fæ6R†6FVv÷'’Â7G"’VÇ6RæöæP ¢FVb6åöFB†—FVÓ¢6öçFVçD—FVÒ’Óâ&ööÃ ¢òÂòÂòÂ&7F–6RÒF–ÖVç6–öç2†—FVÒ¢¶W’Ò6÷W&6Uö¶W’†—FVÒ¢–b€¢F–vW7BæÖ…ö—FV×5÷W%÷6÷W&6R—2æ÷BæöæP¢æB6÷W&6Uö6÷VçG5¶¶W•ÒãÒF–vW7BæÖ…ö—FV×5÷W%÷6÷W&6P¢“ ¢&WGW&âfÇ6P¢–b€¢&7F–6RÓÒ'FöF’×W6R ¢æBF–vW7BæÖ…÷FöF•÷W6U÷W%÷6÷W&6R—2æ÷BæöæP¢æB&öGV7E÷6÷W&6Uö6÷VçG5¶¶W•ÒãÒF–vW7BæÖ…÷FöF•÷W6U÷W%÷6÷W&6P¢“ ¢&WGW&âfÇ6P¢—FVÕöw&÷WÒw&÷Wö¶W’†—FVÒ¢–b—FVÕöw&÷W—2æ÷BæöæS ¢Æ–Ö—Eöf÷%öw&÷WÒF–vW7Bæ6FVv÷'•öw&÷W5¶—FVÕöw&÷WÒæÆ–Ö—@¢–bw&÷Wö6÷VçG5¶—FVÕöw&÷WÒãÒÆ–Ö—Eöf÷%öw&÷W ¢&WGW&âfÇ6P¢&WGW&âG'VP ¢FVbFB†—FVÓ¢6öçFVçD—FVÒ’ÓâæöæS ¢&Vv–öâÂ&öf–ÆRÂÖG&—…ö¶W’Â&7F–6RÒF–ÖVç6–öç2†—FVÒ¢¶W’Ò6÷W&6Uö¶W’†—FVÒ¢6VÆV7FVBæVæB†—FVÒ¢6VÆV7FVEö–G2æFB†—FVÒæ–B¢ÖG&—…ö6÷VçG5¶ÖG&—…ö¶W•Ò³Ò¢&öf–ÆUö6÷VçG5·&öf–ÆUÒ³Ò¢&Vv–öåö6÷VçG5·&Vv–öåÒ³Ò¢&7F–6Uö6÷VçG5·&7F–6UÒ³Ò¢6÷W&6Uö6÷VçG5¶¶W•Ò³Ò¢–b&7F–6RÓÒ'FöF’×W6R# ¢&öGV7E÷6÷W&6Uö6÷VçG5¶¶W•Ò³Ò¢—FVÕöw&÷WÒw&÷Wö¶W’†—FVÒ¢–b—FVÕöw&÷W—2æ÷BæöæS ¢w&÷Wö6÷VçG5¶—FVÕöw&÷WÒ³Ò¢—FVÒæÖWFFF²'&7F–6Uö6FVv÷'’%ÒÒ&7F–6P ¢–bF–vW7Bç&7F–6U÷F&vWG3 ¢f÷"&7F–6RÂF&vWB–âF–vW7Bç&7F–6U÷F&vWG2æ—FV×2‚“ ¢f÷"—FVÒ–â6÷'FVEö—FV×3 ¢–bÆVâ‡6VÆV7FVB’ãÒÆ–Ö—B÷"&7F–6Uö6÷VçG5·&7F–6UÒãÒF&vWC ¢'&V°¢–b—FVÒæ–B–â6VÆV7FVEö–G2÷"æ÷B6åöFB†—FVÒ“ ¢6öçF–çVP¢–bF–ÖVç6–öç2†—FVÒ•³5ÒÓÒ&7F–6S ¢FB†—FVÒ¢VÆ–bF–vW7BæÖG&—…÷F&vWG3 ¢f÷"—FVÒ–â6÷'FVEö—FV×3 ¢–bÆVâ‡6VÆV7FVB’ãÒÆ–Ö—C ¢'&V°¢òÂòÂÖG&—…ö¶W’ÂòÒF–ÖVç6–öç2†—FVÒ¢F&vWBÒF–vW7BæÖG&—…÷F&vWG2ævWB†ÖG&—…ö¶W’Â¢–bF&vWBæBÖG&—…ö6÷VçG5¶ÖG&—…ö¶W•ÒÂF&vWBæB6åöFB†—FVÒ“ ¢FB†—FVÒ¢VÇ6S ¢2&6·v&BÖ6ö×F–&ÆR–æFWVæFVçBF&vWG2v†VâæòÖG&—‚—27WÆ–VBà¢f÷"—FVÒ–â6÷'FVEö—FV×3 ¢–bÆVâ‡6VÆV7FVB’ãÒÆ–Ö—C ¢'&V°¢&Vv–öâÂ&öf–ÆRÂòÂòÒF–ÖVç6–öç2†—FVÒ¢æVVG5÷&öf–ÆRÒ&öf–ÆUö6÷VçG5·&öf–ÆUÒÂF–vW7Bç&öf–ÆU÷F&vWG2ævWB€¢&öf–ÆRÂ ¢¢æVVG5÷&Vv–öâÒ&Vv–öåö6÷VçG5·&Vv–öåÒÂF–vW7Bç&Vv–öå÷F&vWG2ævWB€¢&Vv–öâÂ ¢¢–b†æVVG5÷&öf–ÆR÷"æVVG5÷&Vv–öâ’æB6åöFB†—FVÒ“ ¢FB†—FVÒ ¢–bF–vW7BçVÆ—G•öf–ÆÂæBÆVâ‡6VÆV7FVB’ÂÆ–Ö—C ¢f÷"—FVÒ–â6÷'FVEö—FV×3 ¢–bÆVâ‡6VÆV7FVB’ãÒÆ–Ö—C ¢'&V°¢–b—FVÒæ–Bæ÷B–â6VÆV7FVEö–G2æB6åöFB†—FVÒ“ ¢FB†—FVÒ ¢f÷"&æ²Â—FVÒ–âVçVÖW&FR‡6VÆV7FVBÂ7F'CÓ“ ¢—FVÒæÖWFFF²&F–vW7E÷&æ²%ÒÒ&æ°¢–b&æ²ÃÒF–vW7BæFVWö—FV×3 ¢—FVÒæÖWFFF²'7VÖÖ'•öFWF‚%ÒÒ&FVW ¢—FVÒæÖWFFF²'7VÖÖ'•öÆVæwF…÷¦‚%ÒÒ#3ÓSZÙr ¢VÇ6S ¢—FVÒæÖWFFF²'7VÖÖ'•öFWF‚%ÒÒ&'&–Vb ¢—FVÒæÖWFFF²'7VÖÖ'•öÆVæwF…÷¦‚%ÒÒ#ÓƒZÙr  ¢–bÆös ¢6VÆbæ6öç6öÆRç&–çB€¢b'·6VÆbæ–6öç5²v&Ææ6Ru×ÒF&vWFVBF–vW7B6VÆV7FVB ¢b'¶ÆVâ‡6VÆV7FVB—Ò÷¶ÆVâ†—FV×2—Ò—FV×2 ¢¢f÷"&7F–6RÂF&vWB–âF–vW7Bç&7F–6U÷F&vWG2æ—FV×2‚“ ¢6VÆbæ6öç6öÆRç&–çB€¢b"·6VÆbæ–6öç5²vFWF–Âu×Ò&7F–6R·&7F–6WÓ¢ ¢b'·&7F–6Uö6÷VçG2ævWB‡&7F–6RÂ—Ò÷·F&vWGÒ ¢¢f÷"ÖG&—…ö¶W’ÂF&vWB–âF–vW7BæÖG&—…÷F&vWG2æ—FV×2‚“ ¢6VÆbæ6öç6öÆRç&–çB€¢b"·6VÆbæ–6öç5²vFWF–Âu×Ò¶ÖG&—…ö¶W—Ó¢ ¢b'¶ÖG&—…ö6÷VçG2ævWB†ÖG&—…ö¶W’Â—Ò÷·F&vWGÒ ¢¢f÷"&öf–ÆRÂF&vWB–âF–vW7Bç&öf–ÆU÷F&vWG2æ—FV×2‚“ ¢6VÆbæ6öç6öÆRç&–çB€¢b"·6VÆbæ–6öç5²vFWF–Âu×Ò&öf–ÆR·&öf–ÆWÓ¢ ¢b'·&öf–ÆUö6÷VçG2ævWB‡&öf–ÆRÂ—Ò÷·F&vWGÒ ¢¢f÷"&Vv–öâÂF&vWB–âF–vW7Bç&Vv–öå÷F&vWG2æ—FV×2‚“ ¢6VÆbæ6öç6öÆRç&–çB€¢b"·6VÆbæ–6öç5²vFWF–Âu×Ò&Vv–öâ·&Vv–öçÓ¢ ¢b'·&Vv–öåö6÷VçG2ævWB‡&Vv–öâÂ—Ò÷·F&vWGÒ ¢¢6VÆbæ6öç6öÆRç&–çB‚"" ¢&WGW&â&Ææ6VDF–vW7E&W7VÇB€¢—FV×3×6VÆV7FVBÀ¢Væ&ÆVCÕG'VRÀ¢&öf–ÆUö6÷VçG3ÖF–7B‡&öf–ÆUö6÷VçG2’À¢&Vv–öåö6÷VçG3ÖF–7B‡&Vv–öåö6÷VçG2’À¢ÖG&—…ö6÷VçG3ÖF–7B†ÖG&—…ö6÷VçG2’À¢&7F–6Uö6÷VçG3ÖF–7B‡&7F–6Uö6÷VçG2’À¢w&÷Wö6÷VçG3ÖF–7B†w&÷Wö6÷VçG2’À¢ Ğ¢7–æ2FVböW‡æE÷Gv—GFW%öF—67W76–öâ‡6VÆbÂ—FV×3¢Æ—7E´6öçFVçD—FVÕÒ’ÓâæöæS Ğ¢""%6V6öæB×7FvS¢fWF6‚&WÇ’FW‡Bf÷"–×÷'FçBGv—GFW"—FV×2æB&RÖæÇ—¦RàĞ Ğ¢öæÇ’'Vç2v†Vâ6÷W&6W2çGv—GFW"æfWF6…÷&WÇ•÷FW‡B—2G'VRàĞ¢&÷VæFVB'’Ö…÷GvVWG5÷FõöW‡æBFò6öçG&öÂ6÷7BàĞ¢"" Ğ¢Guö6frÒ6VÆbæ6öæf–rç6÷W&6W2çGv—GFW Ğ¢–bæ÷BGuö6fr÷"æ÷BGuö6fræVæ&ÆVB÷"æ÷BGuö6fræfWF6…÷&WÇ•÷FW‡C Ğ¢&WGW&àĞ Ğ¢g&öÒæÖöFVÇ2–×÷'B6÷W&6UG—PĞ Ğ¢Gv—GFW%ö—FV×2Ò°Ğ¢—FVÒf÷"—FVÒ–â—FV×0Ğ¢–b—FVÒç6÷W&6U÷G—RÓÒ6÷W&6UG—RåEt•EDU Ğ¢Õ³§Guö6fræÖ…÷GvVWG5÷FõöW‡æEĞĞ Ğ¢–bæ÷BGv—GFW%ö—FV×3 Ğ¢&WGW&àĞ Ğ¢6VÆbæ6öç6öÆRç&–çB€Ğ¢b'·6VÆbæ–6öç5²vF—67W76–öâu×ÒfWF6†–ær&WÇ’FW‡Bf÷" Ğ¢b'¶ÆVâ‡Gv—GFW%ö—FV×2—ÒGv—GFW"—FV×2âââ Ğ¢Ğ Ğ¢7–æ2v—F‚‡GG‚ä7–æ46Æ–VçB‡F–ÖV÷WCÓ3ã’26Æ–VçC Ğ¢–bGuö6fræÖöFRÓÒ'Æ—w&–v‡B# Ğ¢6VÆbæ6öç6öÆRç&–çB€Ğ¢"·–VÆÆ÷uÕ&WÇ’W‡ç6–öâæ÷B–WB7W÷'FVB–âÆ—w&–v‡BÖöFRå²÷–VÆÆ÷uÒ Ğ¢Ğ¢&WGW&àĞ¢67&W"ÒGv—GFW%67&W"‡Guö6frÂ6Æ–VçBĞ¢W‡æFVBÒµĞĞ¢f÷"—FVÒ–âGv—GFW%ö—FV×3 Ğ¢G'“ Ğ¢&WÇ•öÆ–æW2Òv—B67&W"æfWF6…÷&WÆ–W5öf÷%ö—FVÒ†—FVÒĞ¢–bGv—GFW%67&W"æVæEöF—67W76–öåö6öçFVçB†—FVÒÂ&WÇ•öÆ–æW2“ Ğ¢W‡æFVBæVæB†—FVÒĞ¢6VÆbæ6öç6öÆRç&–çB€Ğ¢b"·6VÆbæ–6öç5²vF—67W76–öâu×Ò¶ÆVâ‡&WÇ•öÆ–æW2—Ò&WÆ–W2 Ğ¢b&FFVBFó¢¶—FVÒçF—FÆU³£c×Ò Ğ¢Ğ¢W†6WBW†6WF–öâ2W†3 Ğ¢6VÆbæ6öç6öÆRç&–çB€Ğ¢b"·–VÆÆ÷u×·6VÆbæ–6öç5²wv&æ–æru×Ò&WÇ’fWF6‚f–ÆVBf÷" Ğ¢b'¶—FVÒæ–GÓ¢¶W†7Õ²÷–VÆÆ÷uÒ Ğ¢Ğ Ğ¢–bæ÷BW‡æFVC Ğ¢&WGW&àĞ Ğ¢6VÆbæ6öç6öÆRç&–çB€Ğ¢b"&RÖæÇ—¦–ær¶ÆVâ†W‡æFVB—ÒGv—GFW"—FV×2v—F‚&WÇ’6öçFW‡BââåÆâ Ğ¢Ğ¢•ö6Æ–VçBÒ7&VFUö•ö6Æ–VçB‡6VÆbæ6öæf–ræ’Ğ¢æÇ—¦W"Ò6öçFVçDæÇ—¦W"†•ö6Æ–VçBÂ6VÆbç&öf–ÆW2Â6öç6öÆS×6VÆbæ6öç6öÆRĞ¢v—BæÇ—¦W"ææÇ—¦Uö&F6‚†W‡æFVBĞ Ğ¢7–æ2FVbVç&–6…ö—FV×2‡6VÆbÂ—FV×3¢Æ—7E´6öçFVçD—FVÕÒ’ÓâVç&–6†ÖVçD&F6…&W7VÇC Ğ¢""$Vç&–6‚—FV×2v—F‚&6¶w&÷VæB¶æ÷vÆVFvRƒ&æB’72’àĞ Ğ¢f÷"V6‚—FVÒF†B76VBF†R66÷&RF‡&W6†öÆBÂ6ÆÂ’FòvVæW&FPĞ¢&6¶w&÷VæB¶æ÷vÆVFvR&6VBöâF†R—FVÒw27GVÂ6öçFVçBàĞ Ğ¢&w3 Ğ¢—FV×3¢–×÷'FçB—FV×2FòVç&–6‚†ÖöF–f–VB–â×Æ6RĞ¢"" Ğ¢–bæ÷B—FV×3 Ğ¢&WGW&âVç&–6†ÖVçD&F6…&W7VÇB‚Ğ Ğ¢6VÆbæ6öç6öÆRç&–çB€Ğ¢b'·6VÆbæ–6öç5²vVç&–6‚u×ÒVç&–6†–ærv—F‚&6¶w&÷VæB¶æ÷vÆVFvRâââ Ğ¢Ğ¢•ö6Æ–VçBÒ7&VFUö•ö6Æ–VçB‡6VÆbæ6öæf–ræ’Ğ¢Vç&–6†W"Ò6öçFVçDVç&–6†W"€Ğ¢•ö6Æ–VçBÀĞ¢6VÆbç&öf–ÆW2ÀĞ¢6VÆbæ6öæf–ræ’æÆæwVvW2ÀĞ¢6öç6öÆS×6VÆbæ6öç6öÆRÀĞ¢Ğ¢&W7VÇBÒv—BVç&–6†W"æVç&–6…ö&F6‚†—FV×2Ğ¢6VÆbæ6öç6öÆRç&–çB€Ğ¢b"Vç&–6†VB·&W7VÇBç7V66VVFVEö6÷VçGÒ÷¶ÆVâ†—FV×2—Ò—FV×2 Ğ¢Ğ¢–b&W7VÇBæf–ÆVEö6÷VçC Ğ¢6VÆbæ6öç6öÆRç&–çB€Ğ¢b"·–VÆÆ÷uÕ6¶—VB·&W7VÇBæf–ÆVEö6÷VçGÒ—FV×2gFW"Vç&–6†ÖVçB Ğ¢b&f–ÆVC¢²rÂræ¦ö–â‡&W7VÇBæf–ÆVEö–G2—Õ²÷–VÆÆ÷uÒ Ğ¢Ğ¢6VÆbæ6öç6öÆRç&–çB‚""Ğ¢&WGW&â&W7VÇ@Ğ Ğ¢7–æ2FVbæÇ—¦Uö—FV×2‡6VÆbÂ—FV×3¢Æ—7E´6öçFVçD—FVÕÒ’ÓâÆ—7E´6öçFVçD—FVÕÓ Ğ¢""$æÇ—¦R6öçFVçB—FV×2v—F‚’àĞ Ğ¢&w3 Ğ¢—FV×3¢—FV×2FòæÇ—¦PĞ Ğ¢&WGW&ç3 Ğ¢Æ—7E´6öçFVçD—FVÕÓ¢æÇ—¦VB—FV×0Ğ¢"" Ğ¢6VÆbæ6öç6öÆRç&–çB†b'·6VÆbæ–6öç5²v’u×ÒæÇ—¦–ær6öçFVçBv—F‚’âââ"Ğ Ğ¢•ö6Æ–VçBÒ7&VFUö•ö6Æ–VçB‡6VÆbæ6öæf–ræ’Ğ¢æÇ—¦W"Ò6öçFVçDæÇ—¦W"†•ö6Æ–VçBÂ6VÆbç&öf–ÆW2Â6öç6öÆS×6VÆbæ6öç6öÆRĞ Ğ¢&WGW&âv—BæÇ—¦W"ææÇ—¦Uö&F6‚†—FV×2Ğ Ğ¢7–æ2FVbövVæW&FU÷7VÖÖ'’€Ğ¢6VÆbÀĞ¢—FV×3¢Æ—7E´6öçFVçD—FVÕÒÀĞ¢FFS¢7G"ÀĞ¢F÷FÅöfWF6†VC¢–çBÀĞ¢ÆæwVvS¢7G"Ò&Vâ"ÀĞ¢’Óâ7G# Ğ¢""$vVæW&FRF–Ç’7VÖÖ'’àĞ Ğ¢&w3 Ğ¢—FV×3¢–×÷'FçB—FV×2Fò–æ6ÇVFR†Ç&VG’Vç&–6†VBv—F‚&6¶w&÷VæB÷&VÆFVBĞ¢FFS¢FFR7G&–æpĞ¢F÷FÅöfWF6†VC¢F÷FÂ—FV×2fWF6†V@Ğ¢ÆæwVvS¢÷WGWBÆæwVvR‚&Vâ"÷"'¦‚"Ğ Ğ¢&WGW&ç3 Ğ¢7G#¢Ö&¶F÷vâ7VÖÖ'Ğ¢"" Ğ¢6VÆbæ6öç6öÆRç&–çB†b'·6VÆbæ–6öç5²w7VÖÖ'’u×ÒvVæW&F–ærF–Ç’7VÖÖ'’âââ"Ğ Ğ¢7VÖÖ&—¦W"ÒF–Ç•7VÖÖ&—¦W"€Ğ¢&öf–ÆUöæÖW3×6VÆbç&öf–ÆW2ææÖW2ÀĞ¢&öf–ÆUö÷&FW#×6VÆbæ6öæf–ræF–vW7Bç&öf–ÆUö÷&FW"ÀĞ¢Ğ Ğ¢&WGW&âv—B7VÖÖ&—¦W"ævVæW&FU÷7VÖÖ'’†—FV×2ÂFFRÂF÷FÅöfWF6†VBÂÆæwVvSÖÆæwVvRĞ 

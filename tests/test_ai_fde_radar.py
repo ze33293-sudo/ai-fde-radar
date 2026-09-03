@@ -238,6 +238,129 @@ def test_prefilter_soft_source_cap_preserves_source_diversity() -> None:
     assert len(source_counts) >= 4
 
 
+def test_practical_prefilter_prefers_evidenced_workflow_over_news_cycle_noise() -> None:
+    radar_config = config(
+        profile_targets={},
+        region_targets={},
+        matrix_targets={},
+        practice_targets={"enterprise-case": 1},
+    )
+    radar_config.collection.candidate_limit = 1
+    orchestrator = HorizonOrchestrator(radar_config, SimpleNamespace())
+
+    noise = item(1, "global", "ai-product-fde")
+    noise.processing = None
+    noise.title = "AI startup reaches new valuation after funding round"
+    noise.metadata.update(
+        {"practice_category": "enterprise-case", "source_tier": 1}
+    )
+
+    useful = item(2, "global", "ai-product-fde")
+    useful.processing = None
+    useful.title = "Customer support AI case study cuts handle time by 20%"
+    useful.content = (
+        "A deployed ticket-triage workflow documents rollout, human escalation, "
+        "and resolution-rate measurement."
+    )
+    useful.published_at -= timedelta(hours=2)
+    useful.metadata.update(
+        {"practice_category": "enterprise-case", "source_tier": 2}
+    )
+
+    selected = orchestrator.prefilter_candidates([noise, useful])
+
+    assert selected == [useful]
+    assert useful.metadata["prefilter_practical_score"] >= 2
+
+
+def test_practical_prefilter_requires_ai_signal_in_hacker_news_title() -> None:
+    radar_config = config(
+        profile_targets={},
+        region_targets={},
+        matrix_targets={},
+        practice_targets={"method-pitfall": 1},
+    )
+    radar_config.collection.candidate_limit = 2
+    orchestrator = HorizonOrchestrator(radar_config, SimpleNamespace())
+
+    unrelated = item(1, "global", "ai-product-fde")
+    unrelated.processing = None
+    unrelated.source_type = SourceType.HACKERNEWS
+    unrelated.title = "The death of physical media"
+    unrelated.content = "The comments briefly mention AI evaluation."
+    unrelated.metadata["practice_category"] = "method-pitfall"
+
+    useful = item(2, "global", "ai-product-fde")
+    useful.processing = None
+    useful.source_type = SourceType.HACKERNEWS
+    useful.title = "AI agent eval harness shows cost per pass varies 17x"
+    useful.content = "A reproducible evaluation compares production reliability."
+    useful.metadata["practice_category"] = "method-pitfall"
+
+    selected = orchestrator.prefilter_candidates([unrelated, useful])
+
+    assert unrelated not in selected
+    assert selected == [useful]
+
+
+def test_practical_prefilter_deprioritizes_distant_infrastructure_tutorial() -> None:
+    radar_config = config(
+        profile_targets={},
+        region_targets={},
+        matrix_targets={},
+        practice_targets={"beginner-tech": 1},
+    )
+    radar_config.collection.candidate_limit = 1
+    orchestrator = HorizonOrchestrator(radar_config, SimpleNamespace())
+
+    distant = item(1, "global", "tech-news")
+    distant.processing = None
+    distant.title = "Step-by-step CUDA optimization walkthrough for GPU kernels"
+    distant.metadata["practice_category"] = "beginner-tech"
+
+    relevant = item(2, "global", "tech-news")
+    relevant.processing = None
+    relevant.title = "Beginner guide to evaluating RAG for customer support"
+    relevant.content = "Compare answer accuracy on ten after-sales tickets."
+    relevant.metadata["practice_category"] = "beginner-tech"
+
+    selected = orchestrator.prefilter_candidates([distant, relevant])
+
+    assert selected == [relevant]
+
+
+def test_practical_prefilter_caps_one_source_during_deficit_fill() -> None:
+    radar_config = config(
+        profile_targets={},
+        region_targets={},
+        matrix_targets={},
+        practice_targets={"beginner-tech": 1},
+    )
+    radar_config.collection.candidate_limit = 9
+    radar_config.digest.max_items_per_source = 3
+    orchestrator = HorizonOrchestrator(radar_config, SimpleNamespace())
+    candidates = []
+    for index in range(12):
+        candidate = item(index, "global", "tech-news")
+        candidate.processing = None
+        candidate.title = f"AI agent architecture tutorial {index}"
+        candidate.metadata.update(
+            {
+                "practice_category": "beginner-tech",
+                "feed_name": "version-firehose" if index < 8 else f"feed-{index}",
+            }
+        )
+        candidates.append(candidate)
+
+    selected = orchestrator.prefilter_candidates(candidates)
+
+    assert len(selected) == 7
+    assert sum(
+        candidate.metadata["feed_name"] == "version-firehose"
+        for candidate in selected
+    ) == 3
+
+
 def test_history_deduplicates_url_and_title_but_allows_marked_progress(
     tmp_path: Path,
 ) -> None:
@@ -301,6 +424,8 @@ def test_metrics_are_secret_free_and_include_distribution(tmp_path: Path) -> Non
     assert payload["selection"]["practice_categories"] == {"unclassified": 2}
     assert payload["analysis"]["numeric_scores"] == 2
     assert payload["analysis"]["score_buckets"] == {"8-8.9": 2}
+    assert len(payload["analysis"]["top_candidates"]) == 2
+    assert payload["analysis"]["top_candidates"][0]["model_score"] == 8.0
     assert "DEEPSEEK_API_KEY" not in json.dumps(payload)
 
 
