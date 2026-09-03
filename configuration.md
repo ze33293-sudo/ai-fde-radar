@@ -81,7 +81,8 @@ automatic matching cannot select a profile:
     "profile_settings": {
       "tech-news": {
         "threshold": 7.0,
-        "topic_dedup": true
+        "topic_dedup": true,
+        "require_actionable_within_7_days": false
       },
       "tech-blog": {
         "threshold": 4.0,
@@ -96,7 +97,9 @@ automatic matching cannot select a profile:
 - `default_profile`: ID of a profile present in `profiles_dir`.
 - `profile_settings`: User preferences keyed by profile ID. `threshold` accepts
   `0` through `10` or `null` for no score filter; `topic_dedup` defaults to
-  `true`. Unknown profile IDs are rejected when Horizon starts.
+  `true`; `require_actionable_within_7_days` controls whether an analysis without
+  a seven-day action is score-capped and defaults to `true` for backward
+  compatibility. Unknown profile IDs are rejected when Horizon starts.
 
 Each profile owns its matching, analysis, and enrichment behavior. Runtime
 filtering preferences stay in the main JSON configuration. See [Processing
@@ -557,18 +560,23 @@ configuration. Each profile can use a different `threshold`; set it to `null` or
 omit that profile's settings to disable score filtering. See [Processing
 Profiles](profiles.md#filtering) and [Scoring](scoring.md).
 
-The runtime `collection` section controls the fetch window and contains only
-`time_window_hours`:
+The runtime `collection` section controls the main and optional fallback windows:
 
 ```json
 {
   "collection": {
-    "time_window_hours": 24
+    "time_window_hours": 30,
+    "fallback_window_hours": 168,
+    "candidate_limit": 60
   }
 }
 ```
 
-- `time_window_hours`: Fetch content from last N hours
+- `time_window_hours`: Fetch the primary content window in hours.
+- `fallback_window_hours`: Optional older window used only for targeted searches
+  when a required practice column has no eligible item.
+- `candidate_limit`: Maximum number of items sent to model scoring across the
+  primary and fallback passes.
 
 The runtime `digest` section controls final section order and optional balanced
 digest limits:
@@ -578,6 +586,23 @@ digest limits:
   "digest": {
     "max_items": 20,
     "profile_order": ["tech-news", "tech-blog", "finance-news"],
+    "practice_targets": {
+      "today-use": 5,
+      "enterprise-case": 5,
+      "method-pitfall": 4,
+      "beginner-tech": 3,
+      "china-career": 2,
+      "hands-on": 1
+    },
+    "practice_minimums": {
+      "today-use": 1,
+      "enterprise-case": 1,
+      "method-pitfall": 1,
+      "beginner-tech": 1,
+      "china-career": 1,
+      "hands-on": 1
+    },
+    "generated_hands_on": true,
     "category_groups": {
       "ai": {
         "name": "AI / Machine Learning",
@@ -601,6 +626,14 @@ digest limits:
   listed here are appended automatically in profile discovery order. Unknown or
   duplicate profile IDs are rejected. The example prioritizes the three listed
   profiles in that order.
+- `practice_targets`: Quality-first target counts for the six AI FDE Radar
+  columns. These targets do not authorize low-quality filler.
+- `practice_minimums`: Required counts. A below-threshold item may satisfy only a
+  minimum and must still pass original-source, factual-evidence, and category
+  hard gates. If a minimum remains unmet, delivery aborts.
+- `generated_hands_on`: Reserve exactly one final slot for a 15–30 minute action
+  card generated from the selected external items. This requires both the
+  `hands-on` target and minimum to equal `1`.
 - `category_groups`: Optional map of quota groups. Each group requires a positive
   `limit` and a non-empty `categories` list. Items within each group are kept by
   analysis score, highest first.

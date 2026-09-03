@@ -244,7 +244,8 @@ Filtering is a user preference configured by profile ID under
   "processing": {
     "profile_settings": {
       "tech-news": {
-        "threshold": 8.0
+        "threshold": 8.0,
+        "require_actionable_within_7_days": false
       }
     }
   }
@@ -255,6 +256,9 @@ Filtering is a user preference configured by profile ID under
 is greater than or equal to that threshold. Set it to `null` or omit settings for
 a profile to bypass score filtering. An MCP threshold supplied for a single
 operation takes precedence over these configured values.
+`require_actionable_within_7_days` defaults to `true` for existing profiles. Set
+it to `false` when actionability should be a scoring bonus rather than a hard
+score gate; the AI FDE Radar profiles use this mode.
 
 The top-level `collection` configuration controls `time_window_hours`. Optional
 balanced digest limits such as `category_groups` and `max_items` belong to the
