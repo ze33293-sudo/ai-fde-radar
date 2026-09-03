@@ -367,6 +367,7 @@ def test_generate_empty_summary_zh_uses_localized_analyzed_line():
     )
 
     assert "> 已分析 10 条内容，但没有达到重要性阈值的条目。" in result
+    assert "实战质量与 7 日行动门槛" in result
     assert "Analyzed 10 items" not in result
 
 

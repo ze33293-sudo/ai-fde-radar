@@ -341,6 +341,7 @@ class HorizonOrchestrator:
             self.console.print(
                 f"{self.icons['ai']} Analyzed {len(analyzed_items)} items with AI\n"
             )
+            self.ensure_analysis_health(analyzed_items)
 
             # 7. Filter, deduplicate, and balance the digest
             filtering_result = await self.select_digest_items(
@@ -926,6 +927,29 @@ class HorizonOrchestrator:
             hours = self.config.collection.time_window_hours
             since = datetime.now(timezone.utc) - timedelta(hours=hours)
         return since
+
+    @staticmethod
+    def ensure_analysis_health(
+        analyzed_items: List[ContentItem],
+        min_success_ratio: float = 0.8,
+    ) -> None:
+        """Abort delivery when model scoring failed for too many candidates."""
+        if not analyzed_items:
+            return
+        valid_scores = sum(
+            1
+            for item in analyzed_items
+            if item.processing
+            and item.processing.analysis
+            and item.processing.analysis.score is not None
+        )
+        required = max(1, math.ceil(len(analyzed_items) * min_success_ratio))
+        if valid_scores < required:
+            raise RuntimeError(
+                "AI analysis health check failed: "
+                f"{valid_scores}/{len(analyzed_items)} candidates received valid scores; "
+                f"at least {required} are required. Delivery aborted."
+            )
 
     async def fetch_all_sources(self, since: datetime) -> List[ContentItem]:
         """Fetch content from all configured sources.

@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from src.models import (
     AIConfig,
     ClassificationResult,
@@ -300,6 +302,23 @@ def test_metrics_are_secret_free_and_include_distribution(tmp_path: Path) -> Non
     assert payload["analysis"]["numeric_scores"] == 2
     assert payload["analysis"]["score_buckets"] == {"8-8.9": 2}
     assert "DEEPSEEK_API_KEY" not in json.dumps(payload)
+
+
+def test_analysis_health_aborts_when_model_scores_are_missing() -> None:
+    analyzed = [item(index, "global", "ai-product-fde") for index in range(10)]
+    for candidate in analyzed[:3]:
+        candidate.processing.analysis.score = None  # type: ignore[union-attr]
+
+    with pytest.raises(RuntimeError, match="Delivery aborted"):
+        HorizonOrchestrator.ensure_analysis_health(analyzed)
+
+
+def test_analysis_health_allows_eighty_percent_valid_scores() -> None:
+    analyzed = [item(index, "global", "ai-product-fde") for index in range(10)]
+    for candidate in analyzed[:2]:
+        candidate.processing.analysis.score = None  # type: ignore[union-attr]
+
+    HorizonOrchestrator.ensure_analysis_health(analyzed)
 
 
 def test_feishu_webhook_token_is_redacted_from_log_url() -> None:
