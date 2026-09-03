@@ -30,7 +30,10 @@ def _analysis_contract(profile: LoadedProfile) -> str:
   "practice_category": "<today-use|enterprise-case|method-pitfall|beginner-tech|china-career|hands-on>",
   "actionable_within_7_days": <true or false>,
   "action": "<one concrete 15-30 minute action, or empty when false>",
-  "project_relevance": "<specific link to an after-sales ticket Agent, AI PM/FDE portfolio, or job search>"
+  "project_relevance": "<specific link to an after-sales ticket Agent, AI PM/FDE portfolio, or job search>",
+  "evidence_complete": <true only when the original source is usable and the factual claim is verifiable>,
+  "category_requirements_met": <true only when the selected category's hard definition is met>,
+  "evidence_note": "<briefly name the primary evidence and any important gap>"
 }"""
 
 
@@ -61,5 +64,7 @@ URL: {item.url}
 Published at: {item.published_at.isoformat()}
 Region: {item.metadata.get("region", "global")}
 Suggested practice category: {item.metadata.get("practice_category") or "none"}
+The suggested category is discovery metadata only. Preserve it as context, but choose
+exactly one final category from the evidence; do not force a match.
 {content_section}
 {discussion_section}"""

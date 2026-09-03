@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from enum import Enum
 import re
 from typing import Annotated, Literal, Optional, List, Dict, Any, NamedTuple, Union
-from pydantic import BaseModel, ConfigDict, HttpUrl, Field, field_validator
+from pydantic import BaseModel, ConfigDict, HttpUrl, Field, field_validator, model_validator
 
 
 class SourceType(str, Enum):
@@ -77,6 +77,9 @@ class ContentAnalysis(BaseModel):
     actionable_within_7_days: Optional[bool] = None
     action: Optional[str] = None
     project_relevance: Optional[str] = None
+    evidence_complete: Optional[bool] = None
+    category_requirements_met: Optional[bool] = None
+    evidence_note: Optional[str] = None
 
 
 class ArtifactSource(BaseModel):
@@ -617,6 +620,7 @@ class ProfileSettingsConfig(BaseModel):
 
     threshold: Optional[float] = Field(default=None, ge=0, le=10)
     topic_dedup: bool = True
+    require_actionable_within_7_days: bool = True
 
 
 class ProcessingConfig(BaseModel):
@@ -643,6 +647,7 @@ class CollectionConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     time_window_hours: int = Field(default=24, gt=0)
+    fallback_window_hours: Optional[int] = Field(default=None, gt=0)
     candidate_limit: int = Field(default=60, gt=0)
     history_days: int = Field(default=7, ge=0, le=365)
     history_path: str = "data/state/seen_items.json"
@@ -664,6 +669,8 @@ class DigestConfig(BaseModel):
     region_targets: Dict[SourceRegion, int] = Field(default_factory=dict)
     matrix_targets: Dict[str, int] = Field(default_factory=dict)
     practice_targets: Dict[PracticeCategory, int] = Field(default_factory=dict)
+    practice_minimums: Dict[PracticeCategory, int] = Field(default_factory=dict)
+    generated_hands_on: bool = False
     quality_fill: bool = True
     deep_items: int = Field(default=5, ge=0)
     brief_items: int = Field(default=15, ge=0)
@@ -680,7 +687,9 @@ class DigestConfig(BaseModel):
             raise ValueError("digest.profile_order entries must be unique")
         return value
 
-    @field_validator("profile_targets", "matrix_targets", "practice_targets")
+    @field_validator(
+        "profile_targets", "matrix_targets", "practice_targets", "practice_minimums"
+    )
     @classmethod
     def validate_positive_targets(cls, value: Dict[str, int]) -> Dict[str, int]:
         if any(not key.strip() for key in value):
@@ -699,6 +708,27 @@ class DigestConfig(BaseModel):
                     "digest.matrix_targets keys must use '<global|china>/<profile>'"
                 )
         return value
+
+    @model_validator(mode="after")
+    def validate_practice_minimums(self):
+        for category, minimum in self.practice_minimums.items():
+            target = self.practice_targets.get(category)
+            if target is not None and minimum > target:
+                raise ValueError(
+                    f"digest.practice_minimums.{category} cannot exceed its target"
+                )
+        if self.max_items is not None and sum(self.practice_minimums.values()) > self.max_items:
+            raise ValueError("digest.practice_minimums cannot exceed digest.max_items")
+        if self.generated_hands_on:
+            if self.practice_targets.get("hands-on") != 1:
+                raise ValueError(
+                    "digest.generated_hands_on requires practice_targets.hands-on = 1"
+                )
+            if self.practice_minimums.get("hands-on") != 1:
+                raise ValueError(
+                    "digest.generated_hands_on requires practice_minimums.hands-on = 1"
+                )
+        return self
 
 
 class MetricsConfig(BaseModel):

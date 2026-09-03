@@ -16,12 +16,14 @@
     "default_profile": "tech-news",
     "profile_settings": {
       "ai-product-fde": {
-        "threshold": 6.0,
-        "topic_dedup": true
+        "threshold": 7.0,
+        "topic_dedup": true,
+        "require_actionable_within_7_days": false
       },
       "tech-news": {
-        "threshold": 6.0,
-        "topic_dedup": true
+        "threshold": 7.0,
+        "topic_dedup": true,
+        "require_actionable_within_7_days": false
       }
     }
   },
@@ -34,6 +36,16 @@
         "category": "agents-sdk",
         "profile": "ai-product-fde",
         "region": "global",
+        "source_tier": 1,
+        "practice_category": "today-use"
+      },
+      {
+        "type": "repo_releases",
+        "owner": "langgenius",
+        "repo": "dify",
+        "category": "ai-product-release",
+        "profile": "ai-product-fde",
+        "region": "china",
         "source_tier": 1,
         "practice_category": "today-use"
       },
@@ -125,7 +137,7 @@
         "profile": "ai-product-fde",
         "region": "global",
         "source_tier": 1,
-        "practice_category": "hands-on"
+        "practice_category": "beginner-tech"
       }
     ],
     "hackernews": {
@@ -192,7 +204,7 @@
         "profile": ["ai-product-fde", "tech-news"],
         "region": "global",
         "source_tier": 2,
-        "practice_category": "hands-on"
+        "practice_category": "beginner-tech"
       },
       {
         "name": "Simon Willison",
@@ -229,7 +241,7 @@
           "profile": ["ai-product-fde", "tech-news"],
           "region": "global",
           "source_tier": 3,
-          "practice_category": "hands-on"
+          "practice_category": "method-pitfall"
         }
       ],
       "users": [],
@@ -250,7 +262,7 @@
       "profile": ["ai-product-fde", "tech-news"],
       "region": "global",
       "source_tier": 2,
-      "practice_category": "hands-on"
+      "practice_category": "beginner-tech"
     },
     "gdelt": {
       "enabled": true,
@@ -274,6 +286,19 @@
         "category": "official-product-update",
         "profile": "ai-product-fde",
         "region": "global",
+        "source_tier": 1,
+        "practice_category": "today-use"
+      },
+      {
+        "enabled": true,
+        "query": "(site:feishu.cn OR site:open.feishu.cn OR site:docs.dify.ai OR site:github.com/langgenius/dify) (发布 OR 更新 OR 正式上线 OR available OR release) (飞书 OR 多维表格 OR 智能伙伴 OR Dify OR Agent)",
+        "language": "zh-CN",
+        "country": "CN",
+        "ceid": "CN:zh-Hans",
+        "max_results": 40,
+        "category": "china-official-product-update",
+        "profile": "ai-product-fde",
+        "region": "china",
         "source_tier": 1,
         "practice_category": "today-use"
       },
@@ -323,7 +348,7 @@
         "profile": ["ai-product-fde", "tech-news"],
         "region": "global",
         "source_tier": 2,
-        "practice_category": "hands-on"
+        "practice_category": "beginner-tech"
       },
       {
         "enabled": true,
@@ -378,6 +403,7 @@
   },
   "collection": {
     "time_window_hours": 30,
+    "fallback_window_hours": 168,
     "candidate_limit": 60,
     "history_days": 7,
     "history_path": "data/state/seen_items.json",
@@ -398,10 +424,19 @@
       "china-career": 2,
       "hands-on": 1
     },
+    "practice_minimums": {
+      "today-use": 1,
+      "enterprise-case": 1,
+      "method-pitfall": 1,
+      "beginner-tech": 1,
+      "china-career": 1,
+      "hands-on": 1
+    },
+    "generated_hands_on": true,
     "quality_fill": true,
     "deep_items": 5,
     "brief_items": 15,
-    "fulltext_reserve": 5,
+    "fulltext_reserve": 10,
     "max_items_per_source": 3,
     "max_today_use_per_source": 1,
     "category_groups": {
