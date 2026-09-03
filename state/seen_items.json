@@ -43,6 +43,24 @@
       "url": "https://arxiv.org/abs/2609.00355",
       "seen_at": "2026-09-02T14:30:26.9782082+00:00",
       "content": "8124811f97c545e2639c4ade0ce0e88ac295c9928f13fdbf40f2347a7c68cfa9"
+    },
+    {
+      "url": "https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation",
+      "title": "fae10d18f57cacb66e9ada151077cfda0ed2f4e8184d0464243a488a96f821cc",
+      "content": "c3d51870639134dec30a48fb86d6673858a474df1a1b569f036c8f41af8da81e",
+      "seen_at": "2026-09-03T05:12:03.722534+00:00"
+    },
+    {
+      "url": "https://github.com/mezmo/aura",
+      "title": "d83ea7dc2f6e59f73d2d874e1dec4b4f3f664e177d39515f7d2b8ab4218942aa",
+      "content": "fe948e8791edf0df4b423623eef28dacda016cac133a9b32fbb6ef8f7940d45e",
+      "seen_at": "2026-09-03T05:12:03.722534+00:00"
+    },
+    {
+      "url": "https://arxiv.org/abs/2609.02092",
+      "title": "ee6aa8248326d425bb9d70aaa4c940f4ed6175e0716d0db2b0e433446aa3dd79",
+      "content": "3a568e85489b10e3cd860bb76eeb2fc27ac901bc148c5ae694a5c9fea034b791",
+      "seen_at": "2026-09-03T05:12:03.722534+00:00"
     }
   ]
 }

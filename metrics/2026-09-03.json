@@ -1,48 +1,77 @@
 {
   "date": "2026-09-03",
-  "generated_at": "2026-09-03T01:30:48.663280+00:00",
+  "generated_at": "2026-09-03T05:12:03.724411+00:00",
   "dry_run": false,
   "pipeline": {
-    "fetched": 883,
-    "url_duplicates_removed": 4,
-    "history_duplicates_removed": 6,
-    "model_candidates": 60,
-    "model_scored": 60,
-    "above_threshold": 0,
-    "selected": 0
+    "fetched": 594,
+    "url_duplicates_removed": 1,
+    "history_duplicates_removed": 1,
+    "model_candidates": 26,
+    "model_scored": 26,
+    "above_threshold": 4,
+    "selected": 3
   },
   "selection": {
-    "profiles": {},
-    "regions": {},
-    "practice_categories": {},
-    "deep_items": 0,
+    "profiles": {
+      "tech-news": 3
+    },
+    "regions": {
+      "global": 3
+    },
+    "practice_categories": {
+      "method-pitfall": 3
+    },
+    "deep_items": 3,
     "brief_items": 0
   },
   "analysis": {
-    "numeric_scores": 0,
+    "numeric_scores": 26,
     "score_buckets": {
-      "missing": 60
+      "1-1.9": 7,
+      "2-2.9": 3,
+      "3-3.9": 6,
+      "4-4.9": 3,
+      "5-5.9": 3,
+      "6-6.9": 3,
+      "7-7.9": 1
     },
-    "top_scores": [],
-    "actionable_within_7_days": 0,
-    "practice_gate_capped": 0,
-    "practice_categories": {}
+    "top_scores": [
+      7.0,
+      6.8,
+      6.5,
+      6.0,
+      5.6,
+      5.5,
+      5.0,
+      4.5,
+      4.0,
+      4.0
+    ],
+    "actionable_within_7_days": 5,
+    "practice_gate_capped": 21,
+    "practice_categories": {
+      "today-use": 3,
+      "method-pitfall": 10,
+      "enterprise-case": 7,
+      "china-career": 1,
+      "beginner-tech": 5
+    }
   },
   "sources": [
     {
       "source": "GitHub",
       "status": "success",
-      "item_count": 20
+      "item_count": 21
     },
     {
       "source": "Hacker News",
       "status": "success",
-      "item_count": 127
+      "item_count": 105
     },
     {
       "source": "RSS Feeds",
       "status": "success",
-      "item_count": 454
+      "item_count": 296
     },
     {
       "source": "Reddit",
@@ -56,8 +85,8 @@
     },
     {
       "source": "GDELT",
-      "status": "success",
-      "item_count": 75
+      "status": "empty",
+      "item_count": 0
     },
     {
       "source": "Google News [1: (site:openai.com OR site:anthropic.c]",
@@ -65,34 +94,34 @@
       "item_count": 40
     },
     {
-      "source": "Google News [2: (AI OR agent OR copilot) (customer s]",
+      "source": "Google News [2: (site:microsoft.com/en/customers/sto]",
       "status": "success",
-      "item_count": 35
+      "item_count": 50
     },
     {
-      "source": "Google News [3: (AI agent OR LLM OR RAG) (evaluation]",
+      "source": "Google News [3: (site:anthropic.com/engineering OR s]",
       "status": "success",
-      "item_count": 35
+      "item_count": 50
     },
     {
       "source": "Google News [4: (RAG OR MCP OR tool calling OR AI ag]",
       "status": "success",
-      "item_count": 37
+      "item_count": 5
     },
     {
       "source": "Google News [5: (AI agent OR RAG OR LLM evaluation) ]",
-      "status": "success",
-      "item_count": 1
+      "status": "empty",
+      "item_count": 0
     },
     {
-      "source": "Google News [6: (人工智能 OR 大模型 OR 智能体 OR AI产品) (客服 OR ]",
+      "source": "Google News [6: (人工智能 OR 大模型 OR 智能体 OR AI产品) (售后 OR ]",
       "status": "success",
-      "item_count": 37
+      "item_count": 11
     },
     {
       "source": "Google News [7: (AI产品经理 OR AI应用实施 OR 大模型产品经理 OR FDE ]",
       "status": "success",
-      "item_count": 11
+      "item_count": 5
     },
     {
       "source": "Google News [8: (人人都是产品经理 OR InfoQ OR 少数派 OR 机器之心 OR]",
@@ -108,10 +137,10 @@
   "model": {
     "provider": "deepseek",
     "model": "deepseek-v4-flash",
-    "input_tokens": 0,
-    "output_tokens": 0,
-    "total_tokens": 0,
-    "estimated_cost_usd": 0.0,
+    "input_tokens": 57907,
+    "output_tokens": 72000,
+    "total_tokens": 129907,
+    "estimated_cost_usd": 0.120519,
     "pricing_configured": true,
     "pricing_note": "DeepSeek V4 Flash peak cache-miss rates checked 2026-09-02; conservative estimate because cache-hit usage is not separated."
   }
