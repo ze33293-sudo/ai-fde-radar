@@ -184,6 +184,60 @@ def test_evidence_and_category_hard_gates_reject_minimum_filler() -> None:
         orchestrator._assert_external_practice_minimums(result.items)
 
 
+def test_missing_columns_are_hydrated_and_reanalyzed_before_hard_gates(
+    monkeypatch,
+) -> None:
+    config = radar_config()
+    config.collection.fetch_fulltext = True
+    config.digest.fulltext_reserve = 5
+    orchestrator = HorizonOrchestrator(config, SimpleNamespace())
+    candidates = [
+        radar_item(index, category, evidence=False, category_match=False)
+        for index, category in enumerate(EXTERNAL_CATEGORIES, start=1)
+    ]
+    for candidate in candidates:
+        candidate.processing.analysis.practice_category = "method-pitfall"  # type: ignore[union-attr]
+        candidate.metadata["practice_category"] = "method-pitfall"
+        candidate.metadata["model_practice_category"] = "method-pitfall"
+
+    hydrated_ids: list[str] = []
+
+    async def hydrate(items):  # type: ignore[no-untyped-def]
+        hydrated_ids.extend(item.id for item in items)
+        for item in items:
+            item.content = "Complete original evidence with the required workflow and result."
+            item.metadata["fulltext_status"] = "success"
+        return items
+
+    async def analyze(items):  # type: ignore[no-untyped-def]
+        for item in items:
+            target = item.metadata["verification_target_practice_category"]
+            analysis = item.processing.analysis
+            analysis.practice_category = target
+            analysis.evidence_complete = True
+            analysis.category_requirements_met = True
+            item.metadata["practice_category"] = target
+            item.metadata["model_practice_category"] = target
+        return items
+
+    monkeypatch.setattr(orchestrator, "hydrate_selected_items", hydrate)
+    monkeypatch.setattr(orchestrator, "analyze_items", analyze)
+
+    verified = asyncio.run(
+        orchestrator._hydrate_and_reanalyze_practice_rescue(
+            candidates,
+            set(EXTERNAL_CATEGORIES),
+        )
+    )
+
+    assert len(hydrated_ids) == 5
+    assert {item.metadata["practice_category"] for item in verified} == set(
+        EXTERNAL_CATEGORIES
+    )
+    assert all(item.metadata["minimum_backfill"] for item in verified)
+    assert all(item.metadata["fulltext_reanalyzed"] for item in verified)
+
+
 def test_generated_hands_on_card_is_one_unranked_ticket_agent_exercise() -> None:
     orchestrator = HorizonOrchestrator(radar_config(), SimpleNamespace())
     external = [
