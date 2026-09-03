@@ -1,10 +1,6 @@
 name: AI FDE Radar Daily
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - ".github/workflows/ai-fde-radar.yml"
   schedule:
     # GitHub cron uses UTC: 01:15 UTC = 09:15 Asia/Shanghai.
     - cron: "15 1 * * *"
@@ -71,7 +67,7 @@ jobs:
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           HORIZON_WEBHOOK_URL: ${{ secrets.HORIZON_WEBHOOK_URL }}
-          DRY_RUN: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
           FORCE_SEND: ${{ github.event_name == 'workflow_dispatch' && inputs.force_send || false }}
         run: |
           args=(--hours 30)
@@ -89,7 +85,7 @@ jobs:
           exit 1
 
       - name: Persist deduplication and send state
-        if: ${{ github.event_name != 'pull_request' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         shell: bash
         run: |
           mkdir -p docs/state
@@ -102,7 +98,7 @@ jobs:
         run: uv run python scripts/verify_no_secrets.py docs data/summaries
 
       - name: Upload dry-run artifacts
-        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         uses: actions/upload-artifact@v4
         with:
           name: ai-fde-radar-dry-run
@@ -113,7 +109,7 @@ jobs:
           if-no-files-found: error
 
       - name: Deploy GitHub Pages
-        if: ${{ github.event_name != 'pull_request' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
