@@ -554,10 +554,14 @@ class HorizonPipelineService:
         total_fetched = self._total_fetched(run_id, fallback=len(items))
         date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-        summarizer = ctx.runtime.DailySummarizer(
-            profile_names=self._profiles(ctx).names,
-            profile_order=ctx.config.digest.profile_order,
-        )
+        summarizer_kwargs = {
+            "profile_names": self._profiles(ctx).names,
+            "profile_order": ctx.config.digest.profile_order,
+        }
+        practice_targets = getattr(ctx.config.digest, "practice_targets", {})
+        if practice_targets:
+            summarizer_kwargs["practice_targets"] = practice_targets
+        summarizer = ctx.runtime.DailySummarizer(**summarizer_kwargs)
         summary = await summarizer.generate_summary(
             items,
             date_str,

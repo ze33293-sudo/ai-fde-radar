@@ -1,41 +1,40 @@
 # Evaluation goal
 
-Evaluate timely information for a beginner AI product manager/FDE who is building an enterprise after-sales ticket Agent, learning through small projects, and preparing for applied AI roles. Reward information that changes what this reader can try, design, measure, or explain in the next seven days.
+Evaluate timely information for a beginner AI product manager/FDE who is building an enterprise after-sales ticket Agent, broadening their industry view, and preparing for applied-AI roles. Reward reliable information that creates a meaningful new mental model, changes a product decision, or reveals how AI is actually being adopted. A near-term action is useful but is not required.
 
 # Weighted scoring
 
-- **Personal, project, or job relevance — 30%.** Directly supports AI product work, FDE delivery, the ticket Agent, a portfolio, or applied-AI job readiness.
-- **Practical actionability — 25%.** Enables a concrete 15–30 minute test, prototype, customer question, workflow change, metric, or decision within seven days.
-- **Evidence quality — 20%.** Uses a primary source, real workflow, measurable before/after result, implementation detail, or clearly stated limitation.
-- **Product/FDE learning value — 15%.** Teaches discovery, scoping, integration, evaluation, human review, permissions, rollout, adoption, or ROI.
-- **Recency — 10%.** Prefer changes from the current collection window, without rewarding novelty alone.
+- **Evidence quality — 25%.** Prefer primary documentation, a named workflow, verifiable results, implementation details, or explicit limitations.
+- **Personal and product relevance — 20%.** Connects to AI product work, FDE delivery, the ticket Agent, a portfolio, or applied-AI job readiness.
+- **Cognitive gain — 20%.** Adds a useful mental model, tradeoff, failure pattern, market signal, or non-obvious constraint.
+- **Industry impact — 15%.** Matters to real users, teams, buyers, workflows, or the direction of applied AI.
+- **Product/FDE learning value — 10%.** Teaches discovery, scoping, integration, evaluation, human review, permissions, rollout, adoption, or ROI.
+- **Recency and actionability — 10%.** Prefer current changes and honest small experiments, but never cap an otherwise valuable item merely because it has no seven-day action.
 
 # Scoring rubric
 
-- **9–10:** Immediately useful and unusually well evidenced; materially changes a product decision or provides a reusable implementation playbook.
-- **7–8:** Clearly relevant, actionable within seven days, and supported by a real capability, workflow, metric, failure, or constraint.
-- **6–6.9:** A useful practical lead with enough source-grounded detail to justify full-text verification and one small experiment.
-- **5–5.9:** Related but generic, lightly evidenced, incremental, or hard for this beginner to apply now.
-- **3–4:** Mostly marketing, commentary, funding, executive opinion, or a feature with no concrete workflow.
-- **0–2:** Off-topic, speculative, inaccessible, copied, or unsupported.
+- **9–10:** Unusually strong primary evidence and impact; materially changes an AI product/FDE decision or understanding.
+- **7–8.9:** Reliable, relevant, and meaningfully informative, with a concrete capability, workflow, result, failure, constraint, or market signal.
+- **6–6.9:** A credible supplemental item that matches a radar category but has limited novelty, impact, or detail.
+- **5–5.9:** Related but generic, incremental, lightly evidenced, or mainly promotional.
+- **3–4.9:** Commentary, funding, executive opinion, or a feature/workflow claim with crucial evidence missing.
+- **0–2.9:** Off-topic, speculative, inaccessible, copied, or unsupported.
 
-# Hard rules
+# Category and evidence hard rules
 
-- A 15–30 minute action may be derived from a source-grounded capability or lesson; the source does not need to be a step-by-step tutorial. Examples include testing a released feature on one ticket, adding one evaluation case, copying one workflow metric into a case-study teardown, updating one PRD assumption, or extracting one job requirement into a resume checklist.
-- If no specific action can be completed within seven days, set `actionable_within_7_days` to false. The program will cap the score below the publication threshold.
-- Reject unreleased demos, generic “AI will change X” claims, funding-only stories, leaderboards without a product decision, and product launches without availability, users, or a workflow.
-- Vendor case-study metrics must be attributed and their uncertainty or commercial incentive acknowledged.
-- Prefer customer support, sales, knowledge/RAG, data/BI, and office workflows because they map to the reader’s daily practice.
+Choose exactly one category and set `category_requirements_met` accurately:
 
-# Practice category
+- `today-use`: only a feature that is already publicly available in ChatGPT, Claude, Gemini, Copilot, Feishu, Dify, or a similarly relevant product. Require an official announcement, help page, documentation, or Release, plus clear availability. A preview, waitlist, rumor, or unreleased demo fails this category.
+- `enterprise-case`: require all three: a named business object/user, an implementation workflow, and a verifiable result or outcome. Pure vendor promotion and claims without process or result fail this category.
+- `method-pitfall`: a reusable lesson about needs, scope, RAG, evaluation, permissions, human collaboration, launch, adoption, or ROI. The source must establish the lesson rather than merely state an opinion.
+- `beginner-tech`: explains a technical change or concept in a way that affects a specific product decision such as reliability, latency, cost, privacy, architecture, or human review.
+- `china-career`: a China-market case, company/tool change, role capability shift, Xiamen opportunity, or remote-job signal. Preserve an original company, product, or recruitment source.
+- `hands-on`: do not assign external news to this category. The program generates the daily hands-on card separately.
 
-Choose exactly one:
+Set `evidence_complete` true only when the supplied original source is accessible enough to verify the central claim. Use `evidence_note` to name the evidence and its largest gap. One item must have only one primary category. The source-suggested category is advisory and may be corrected.
 
-- `today-use`: a released product capability the reader can try now.
-- `enterprise-case`: a real business workflow with users, integrations, rollout details, or measurable results.
-- `method-pitfall`: a reusable product/FDE method, tradeoff, failure, postmortem, governance issue, or evaluation lesson.
-- `beginner-tech`: one accessible technical concept that changes a product choice.
-- `china-career`: a China-market case, tool, role requirement, or job signal with direct career value.
-- `hands-on`: a tutorial, template, repository, or exercise that can be completed or started today.
+# Actionability
+
+Set `actionable_within_7_days` true and provide `action` only when an honest, source-grounded action exists. Otherwise set it false and leave `action` empty. Non-actionable items may still score 7+ when evidence, cognitive gain, impact, and product relevance justify it.
 
 Use three to five specific topic tags.

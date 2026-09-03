@@ -1,41 +1,40 @@
 # Evaluation goal
 
-Evaluate technical information only when it helps a beginner AI product manager/FDE make a near-term product or delivery decision. This is not a general research digest. The reader is building an enterprise after-sales ticket Agent and needs usable understanding of RAG, tools, MCP, agents, evaluations, context, permissions, reliability, latency, and cost.
+Evaluate technical information when it helps a beginner AI product manager/FDE understand an important product or delivery decision. This is not a raw research leaderboard. The reader is building an enterprise after-sales ticket Agent and needs decision-level understanding of RAG, tools, MCP, agents, evaluations, context, permissions, reliability, latency, cost, and human review. A useful explanation can qualify even when it does not produce an immediate task.
 
 # Weighted scoring
 
-- **Personal, project, or job relevance — 30%.** Changes a decision for the ticket Agent, applied-AI portfolio, or AI PM/FDE work.
-- **Practical actionability — 25%.** Supports a concrete 15–30 minute experiment or decision within seven days.
-- **Evidence quality — 20%.** Includes reproducible code, a real failure, measured results, clear methodology, or primary documentation.
-- **Product/FDE learning value — 15%.** Clarifies when to use or avoid a technique and its tradeoffs.
-- **Recency — 10%.** Prefer current changes, but do not reward novelty alone.
+- **Evidence quality — 25%.** Prefer primary papers, official documentation, reproducible code, measured results, real failures, clear methodology, and stated limitations.
+- **Personal, project, or job relevance — 20%.** Changes how a capability should be selected, scoped, built, evaluated, governed, or operated for the reader's ticket Agent, FDE work, portfolio, or job readiness.
+- **Cognitive gain — 20%.** Clarifies a non-obvious concept, tradeoff, boundary, or failure mode for a beginner.
+- **Industry or engineering impact — 15%.** Has consequences for real AI systems, teams, costs, users, or adoption.
+- **Beginner/FDE learning value — 10%.** Can be translated into an accurate product explanation without hiding important caveats.
+- **Recency and actionability — 10%.** Current and testable work receives a bonus, but lack of a seven-day action is never an automatic penalty.
 
 # Scoring rubric
 
-- **9–10:** A reproducible technical change or lesson that materially alters how an applied AI workflow should be built or evaluated now.
-- **7–8:** Technically credible, beginner-explainable, actionable this week, and tied to a concrete product choice or failure mode.
-- **6–6.9:** An accessible technical lead with enough source-grounded detail to justify full-text verification and one small experiment.
-- **5–5.9:** Interesting engineering or research with indirect, future, or poorly demonstrated relevance.
-- **3–4:** Raw benchmark, minor library update, infrastructure optimization, or theory without a near-term product decision.
-- **0–2:** Unsupported claim, hype, off-topic content, or inaccessible evidence.
+- **9–10:** Strong primary evidence and broad consequences that materially alter an applied-AI architecture, evaluation, or delivery decision.
+- **7–8.9:** Technically credible, beginner-explainable, and tied to a concrete product decision, limitation, or failure mode.
+- **6–6.9:** A credible category-matching supplement with limited evidence, impact, or immediate relevance.
+- **5–5.9:** Interesting engineering or research with indirect, narrow, or poorly demonstrated product value.
+- **3–4.9:** Raw benchmark, minor optimization, or theory with no explained product consequence.
+- **0–2.9:** Unsupported claim, hype, off-topic content, inaccessible evidence, or misleading availability.
 
-# Hard rules
+# Category and evidence hard rules
 
-- A 15–30 minute action may be derived from a source-grounded capability or lesson; the source does not need to be a step-by-step tutorial. Examples include testing one ticket, adding one evaluation case, reproducing one comparison, updating one architecture assumption, or writing one interview-ready explanation.
-- If no specific action can be completed within seven days, set `actionable_within_7_days` to false. The program will cap the score below the publication threshold.
-- A paper may score 7+ only if it has an accessible implementation/demo or changes a product decision within roughly 90 days; explain the decision in plain language.
-- Model rankings, chip details, training internals, and inference optimizations normally stay below 7 unless they change availability, cost, latency, privacy, or reliability for a real workflow.
-- Explain at most two key concepts. Do not treat technical depth as value by itself.
+Choose exactly one category and set `category_requirements_met` accurately:
 
-# Practice category
+- `today-use`: only an already publicly available capability backed by official documentation or a Release. Previews, waitlists, and unreleased demos fail.
+- `enterprise-case`: require a real business object/user, implementation workflow, and verifiable result or outcome.
+- `method-pitfall`: a reusable engineering/product lesson about RAG, evaluation, reliability, security, tool use, rollout, permissions, cost, or human review.
+- `beginner-tech`: an accessible concept or technical development that explicitly changes a product choice such as architecture, reliability, latency, cost, privacy, evaluation, or review.
+- `china-career`: a China implementation or skill/job signal with an original company, project, or recruitment source.
+- `hands-on`: do not assign external news to this category. The program generates the daily hands-on card separately.
 
-Choose exactly one:
+Set `evidence_complete` true only when the supplied original source is accessible enough to verify the central claim. Use `evidence_note` to identify the evidence and largest uncertainty. One item must have only one primary category. The source-suggested category is advisory and may be corrected.
 
-- `today-use`: a released technical capability or tool the reader can try now.
-- `enterprise-case`: applied engineering evidence from a real business workflow.
-- `method-pitfall`: evaluation, reliability, security, RAG, tool-use, rollout, cost, or postmortem lessons.
-- `beginner-tech`: an accessible concept that changes a product decision.
-- `china-career`: a China-market implementation or skill signal.
-- `hands-on`: a reproducible tutorial, repository, template, or small experiment.
+# Actionability
 
-Use three to five specific topic tags.
+Set `actionable_within_7_days` true and provide `action` only when an honest experiment follows from the evidence. Otherwise set it false and leave `action` empty. Non-actionable work may score 7+ if its evidence, cognitive gain, impact, and decision value justify it.
+
+Explain at most two key concepts and use three to five specific topic tags.

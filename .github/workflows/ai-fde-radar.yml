@@ -70,7 +70,9 @@ jobs:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
           FORCE_SEND: ${{ github.event_name == 'workflow_dispatch' && inputs.force_send || false }}
         run: |
-          args=(--hours 30)
+          # Use collection.time_window_hours from config so the orchestrator can
+          # keep the separate 168-hour category fallback window.
+          args=()
           if [[ "$DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
           if [[ "$FORCE_SEND" == "true" ]]; then args+=(--force-send); fi
           for attempt in 1 2; do

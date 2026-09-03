@@ -15,7 +15,18 @@ import httpx
 from rich.console import Console
 
 from .console_icons import get_icons
-from .models import Config, ContentItem, SourceType, TrafilaturaExtractorConfig
+from .models import (
+    ArtifactSource,
+    ClassificationResult,
+    Config,
+    ContentAnalysis,
+    ContentArtifact,
+    ContentBlock,
+    ContentItem,
+    ProcessingResult,
+    SourceType,
+    TrafilaturaExtractorConfig,
+)
 from ._file_utils import _atomic_write_text
 from .storage.manager import StorageManager, safe_output_path
 from .services.email import EmailManager
@@ -356,6 +367,9 @@ class BalancedDigestResult:
     region_counts: Dict[str, int] = field(default_factory=dict)
     matrix_counts: Dict[str, int] = field(default_factory=dict)
     practice_counts: Dict[str, int] = field(default_factory=dict)
+    practice_minimum_counts: Dict[str, int] = field(default_factory=dict)
+    fallback_counts: Dict[str, int] = field(default_factory=dict)
+    shortfall_reasons: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -531,50 +545,123 @@ class HorizonOrchestrator:
                 f"{since.strftime('%Y-%m-%d %H:%M:%S')}\n"
             )
 
-            # 2. Fetch content from all sources
-            all_items = await self.fetch_all_sources(since)
+            # 2. Fetch the main 30-hour window from all sources.
+            fresh_items = await self.fetch_all_sources(since)
+            primary_fetch_report = self.last_fetch_report
             self.console.print(
-                f"{self.icons['fetched']} Fetched {len(all_items)} items from all sources\n"
+                f"{self.icons['fetched']} Fetched {len(fresh_items)} items from all sources\n"
             )
 
-            if self.last_fetch_report and self.last_fetch_report.all_failed:
-                raise RuntimeError(self.last_fetch_report.failure_message())
+            if primary_fetch_report and primary_fetch_report.all_failed:
+                raise RuntimeError(primary_fetch_report.failure_message())
 
-            if not all_items:
+            configured_minimums = getattr(
+                getattr(self.config, "digest", None), "practice_minimums", {}
+            )
+            if not fresh_items and not configured_minimums:
                 self.console.print("[yellow]No new content found. Exiting.[/yellow]")
                 return
 
-            # 3. Merge cross-source duplicates (same URL from different sources)
+            history = HistoryStore(
+                Path(self.config.collection.history_path),
+                self.config.collection.history_days,
+            )
+            history.load()
+            external_minimums = self._external_practice_minimums()
+            all_items = list(fresh_items)
             merged_items = self.merge_cross_source_duplicates(all_items)
+            self._annotate_candidate_freshness(merged_items, since)
+            history_result = history.filter_new(merged_items)
+
+            # Reserve a few of the 60 scoring slots for a post-analysis,
+            # category-specific seven-day fallback.
+            candidate_limit = self.config.collection.candidate_limit
+            fallback_reserve = (
+                min(10, max(5, len(external_minimums) * 2))
+                if external_minimums and candidate_limit > len(external_minimums)
+                else 0
+            )
+            initial_limit = max(1, candidate_limit - fallback_reserve)
+            model_candidates = self.prefilter_candidates(
+                history_result.items, limit=initial_limit
+            )
+            analyzed_items = await self.analyze_items(model_candidates)
+            self.console.print(
+                f"{self.icons['ai']} Analyzed {len(analyzed_items)} items with AI\n"
+            )
+            self.ensure_analysis_health(analyzed_items)
+
+            qualified_categories = {
+                str(item.metadata.get("practice_category"))
+                for item in analyzed_items
+                if self._passes_practice_hard_gates(item)
+            }
+            missing_for_search = {
+                category
+                for category in external_minimums
+                if category not in qualified_categories
+            }
+            fallback_items: List[ContentItem] = []
+            fallback_window = self._determine_fallback_window(force_hours)
+            remaining_slots = max(0, candidate_limit - len(analyzed_items))
+            if missing_for_search and fallback_window < since and remaining_slots:
+                self.console.print(
+                    f"{self.icons['fetch']} Targeted seven-day fallback search after "
+                    f"scoring: {', '.join(sorted(missing_for_search))}\n"
+                )
+                fallback_items = await self.fetch_targeted_sources(
+                    fallback_window, missing_for_search
+                )
+                fallback_fetch_report = self.last_fetch_report
+                self.last_fetch_report = FetchReport(
+                    outcomes=(primary_fetch_report.outcomes if primary_fetch_report else [])
+                    + (fallback_fetch_report.outcomes if fallback_fetch_report else [])
+                )
+                all_items.extend(fallback_items)
+                combined_merged = self.merge_cross_source_duplicates(all_items)
+                self._annotate_candidate_freshness(combined_merged, since)
+                combined_history = history.filter_new(combined_merged)
+                initial_keys = {
+                    _deduplication_url_key(str(item.url))
+                    for item in history_result.items
+                }
+                additional_items = [
+                    item
+                    for item in combined_history.items
+                    if _deduplication_url_key(str(item.url)) not in initial_keys
+                    and self._source_practice_category(item) in missing_for_search
+                ]
+                fallback_candidates = self.prefilter_candidates(
+                    additional_items, limit=remaining_slots
+                )
+                fallback_analyzed = await self.analyze_items(fallback_candidates)
+                self.ensure_analysis_health(fallback_analyzed)
+                model_candidates.extend(fallback_candidates)
+                analyzed_items.extend(fallback_analyzed)
+                merged_items = combined_merged
+                history_result = combined_history
+            else:
+                self.last_fetch_report = primary_fetch_report
+
+            if not all_items:
+                if external_minimums:
+                    raise RuntimeError(
+                        "No unseen candidates were found for the required practice columns."
+                    )
+                self.console.print("[yellow]No new content found. Exiting.[/yellow]")
+                return
+
             if len(merged_items) < len(all_items):
                 self.console.print(
                     f"{self.icons['merge']} Merged "
                     f"{len(all_items) - len(merged_items)} cross-source duplicates "
                     f"→ {len(merged_items)} unique items\n"
                 )
-
-            # 4. Remove entries selected during the previous seven days.
-            history = HistoryStore(
-                Path(self.config.collection.history_path),
-                self.config.collection.history_days,
-            )
-            history.load()
-            history_result = history.filter_new(merged_items)
             if history_result.removed:
                 self.console.print(
                     f"{self.icons['cleanup']} Removed {history_result.removed} "
                     "items seen in the recent history window\n"
                 )
-
-            # 5. Rule prefilter before paid model scoring.
-            model_candidates = self.prefilter_candidates(history_result.items)
-
-            # 6. Analyze at most collection.candidate_limit items with AI.
-            analyzed_items = await self.analyze_items(model_candidates)
-            self.console.print(
-                f"{self.icons['ai']} Analyzed {len(analyzed_items)} items with AI\n"
-            )
-            self.ensure_analysis_health(analyzed_items)
 
             # 7. Filter, deduplicate, and balance the digest
             filtering_result = await self.select_digest_items(
@@ -586,7 +673,7 @@ class HorizonOrchestrator:
             # cannot be opened, hydrate a small quality reserve and rebalance so
             # transient paywalls/403s do not unnecessarily shrink the edition.
             important_items = await self.hydrate_selected_items(important_items)
-            target_size = self.config.digest.max_items or len(important_items)
+            target_size = self._external_item_limit()
             if (
                 len(important_items) < target_size
                 and filtering_result.reserve_items
@@ -601,6 +688,7 @@ class HorizonOrchestrator:
                     important_items + reserve_items,
                     log=False,
                 ).items
+            self._assert_external_practice_minimums(important_items)
             self._annotate_digest_depth(important_items)
 
             # Show per-sub-source selection breakdown
@@ -614,6 +702,9 @@ class HorizonOrchestrator:
 
             # 8. Search related stories + enrich with background knowledge (2nd AI pass)
             await self.enrich_items(important_items)
+            if self.config.digest.generated_hands_on:
+                important_items.append(self._build_hands_on_card(important_items, today=local_today))
+            self._assert_complete_practice_digest(important_items)
 
             # 9. Generate and save daily summaries for each configured language
             today = local_today
@@ -621,6 +712,7 @@ class HorizonOrchestrator:
                 summarizer = DailySummarizer(
                     profile_names=self.profiles.names,
                     profile_order=self.config.digest.profile_order,
+                    practice_targets=self.config.digest.practice_targets,
                 )
                 summary = await summarizer.generate_summary(important_items, today, len(all_items), language=lang)
 
@@ -695,7 +787,13 @@ class HorizonOrchestrator:
                     )
 
             if not dry_run:
-                history.record(important_items)
+                history.record(
+                    [
+                        item
+                        for item in important_items
+                        if not item.metadata.get("generated_hands_on")
+                    ]
+                )
                 history.save()
                 if self.webhook_notifier:
                     self._mark_sent(sent_marker)
@@ -713,6 +811,7 @@ class HorizonOrchestrator:
                 candidate_count=len(model_candidates),
                 analyzed_count=len(analyzed_items),
                 analyzed_items=analyzed_items,
+                fetched_items=all_items,
                 threshold_count=filtering_result.threshold_count,
                 selected_items=important_items,
                 usage=usage,
@@ -738,7 +837,7 @@ class HorizonOrchestrator:
             )
 
             # Send webhook failure notification if configured
-            if self.webhook_notifier:
+            if self.webhook_notifier and not dry_run:
                 await self.webhook_notifier.send_failure(
                     date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                     error_message=str(e),
@@ -764,7 +863,9 @@ class HorizonOrchestrator:
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         )
 
-    def prefilter_candidates(self, items: List[ContentItem]) -> List[ContentItem]:
+    def prefilter_candidates(
+        self, items: List[ContentItem], *, limit: Optional[int] = None
+    ) -> List[ContentItem]:
         """Apply evidence checks and build a balanced AI-scoring candidate pool.
 
         The final digest matrix is expanded proportionally to ``candidate_limit``
@@ -773,7 +874,7 @@ class HorizonOrchestrator:
         Empty cells are backfilled from the remaining best evidence, preserving
         the configured quality-first behavior.
         """
-        limit = self.config.collection.candidate_limit
+        limit = limit or self.config.collection.candidate_limit
         practice_budgets = self._candidate_practice_budgets(limit)
         eligible = []
         for item in items:
@@ -789,9 +890,9 @@ class HorizonOrchestrator:
                     continue
             practical_score = self._practical_signal_score(item)
             item.metadata["prefilter_practical_score"] = practical_score
-            # Practical-radar profiles deliberately spend fewer than the maximum
-            # model calls when the open-web supply lacks usable evidence.
-            if practice_budgets and practical_score < 3:
+            # Actionability is a bonus, not an admission gate. Only discard
+            # candidates carrying multiple strong negative/noise signals.
+            if practice_budgets and practical_score < -4:
                 continue
             eligible.append(item)
 
@@ -898,10 +999,10 @@ class HorizonOrchestrator:
     @staticmethod
     def _candidate_priority(item: ContentItem) -> tuple[int, int, float, int]:
         return (
-            -int(item.metadata.get("prefilter_practical_score") or 0),
             int(item.metadata.get("source_tier", 2)),
+            -int(item.metadata.get("prefilter_practical_score") or 0),
             -item.published_at.timestamp(),
-            -int(item.metadata.get("score") or item.metadata.get("stars_gained") or 0),
+            1 if item.metadata.get("is_fallback") else 0,
         )
 
     @staticmethod
@@ -973,6 +1074,9 @@ class HorizonOrchestrator:
             key: target
             for key, target in self.config.digest.practice_targets.items()
             if target > 0
+            and not (
+                key == "hands-on" and self.config.digest.generated_hands_on
+            )
         }
         total = sum(targets.values())
         if not targets or total <= 0:
@@ -1011,7 +1115,10 @@ class HorizonOrchestrator:
 
     @staticmethod
     def _candidate_matches_practice(item: ContentItem, category: str) -> bool:
-        return item.metadata.get("practice_category") == category
+        return (
+            item.metadata.get("source_practice_category")
+            or item.metadata.get("practice_category")
+        ) == category
 
     @staticmethod
     def _candidate_source_key(item: ContentItem) -> str:
@@ -1063,8 +1170,15 @@ class HorizonOrchestrator:
                     return item, True
 
                 item.metadata["fulltext_status"] = "unavailable"
+                requires_strict_verification = bool(
+                    item.metadata.get("minimum_backfill")
+                    or item.metadata.get("is_fallback")
+                    or not self.passes_profile_filter(item)
+                )
                 has_reliable_fallback = (
-                    item.source_type not in {SourceType.GOOGLE_NEWS, SourceType.GDELT}
+                    not requires_strict_verification
+                    and item.source_type
+                    not in {SourceType.GOOGLE_NEWS, SourceType.GDELT}
                     and len((item.content or "").strip()) >= 160
                 )
                 return item, has_reliable_fallback
@@ -1104,6 +1218,7 @@ class HorizonOrchestrator:
         selected_items: List[ContentItem],
         usage,
         dry_run: bool,
+        fetched_items: Optional[List[ContentItem]] = None,
     ) -> None:
         """Write public run metrics without URLs, content, or secret values."""
         if not self.config.metrics.enabled:
@@ -1171,6 +1286,57 @@ class HorizonOrchestrator:
                 for outcome in self.last_fetch_report.outcomes
             ]
 
+        category_metrics: Dict[str, Dict[str, object]] = {}
+        ordered_categories = list(self.config.digest.practice_targets)
+        fetched_category_counts: Dict[str, int] = defaultdict(int)
+        for item in fetched_items or []:
+            source_category = self._source_practice_category(item)
+            if source_category:
+                fetched_category_counts[source_category] += 1
+        scored_category_counts: Dict[str, int] = defaultdict(int)
+        qualified_category_counts: Dict[str, int] = defaultdict(int)
+        for item in analyzed_items:
+            analysis = item.processing.analysis if item.processing else None
+            category = str(
+                (analysis.practice_category if analysis else None)
+                or item.metadata.get("practice_category")
+                or "unclassified"
+            )
+            if analysis and analysis.score is not None:
+                scored_category_counts[category] += 1
+            if self._passes_practice_hard_gates(item) and self.passes_profile_filter(item):
+                qualified_category_counts[category] += 1
+        selected_category_counts: Dict[str, int] = defaultdict(int)
+        selected_fallback_counts: Dict[str, int] = defaultdict(int)
+        for item in selected_items:
+            category = str(item.metadata.get("practice_category") or "unclassified")
+            selected_category_counts[category] += 1
+            if item.metadata.get("is_fallback"):
+                selected_fallback_counts[category] += 1
+        for category in ordered_categories:
+            target = self.config.digest.practice_targets.get(category, 0)
+            minimum = self.config.digest.practice_minimums.get(category, 0)
+            final_count = selected_category_counts.get(category, 0)
+            if final_count < minimum:
+                gap_reason = "minimum not met; delivery should have been aborted"
+            elif final_count < target:
+                gap_reason = "quality supply below target; minimum satisfied"
+            else:
+                gap_reason = ""
+            category_metrics[category] = {
+                "fetched": fetched_category_counts.get(category, 0),
+                "scored": scored_category_counts.get(category, 0),
+                "qualified_at_threshold": qualified_category_counts.get(category, 0),
+                "final": final_count,
+                "fallback": selected_fallback_counts.get(category, 0),
+                "minimum": minimum,
+                "target": target,
+                "shortfall_reason": gap_reason,
+            }
+        ranked_selected_count = sum(
+            not item.metadata.get("generated_hands_on") for item in selected_items
+        )
+
         payload = {
             "date": date,
             "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -1189,11 +1355,16 @@ class HorizonOrchestrator:
                 "regions": dict(region_counts),
                 "practice_categories": dict(practice_counts),
                 "deep_items": min(
-                    len(selected_items), self.config.digest.deep_items
+                    ranked_selected_count, self.config.digest.deep_items
                 ),
                 "brief_items": max(
-                    0, len(selected_items) - self.config.digest.deep_items
+                    0, ranked_selected_count - self.config.digest.deep_items
                 ),
+                "generated_hands_on_cards": sum(
+                    bool(item.metadata.get("generated_hands_on"))
+                    for item in selected_items
+                ),
+                "practice_diagnostics": category_metrics,
             },
             "analysis": {
                 "numeric_scores": len(numeric_scores),
@@ -1201,6 +1372,10 @@ class HorizonOrchestrator:
                 "top_scores": sorted(numeric_scores, reverse=True)[:10],
                 "actionable_within_7_days": actionable_count,
                 "practice_gate_capped": practice_gate_capped,
+                "actionability_gate_enabled": any(
+                    settings.require_actionable_within_7_days
+                    for settings in self.config.processing.profile_settings.values()
+                ),
                 "practice_categories": dict(analyzed_practice_counts),
             },
             "sources": source_metrics,
@@ -1242,6 +1417,17 @@ class HorizonOrchestrator:
                         )
                         or candidate.metadata.get("practice_category")
                         or "unclassified"
+                    ),
+                    "source_practice_category": str(
+                        candidate.metadata.get("source_practice_category")
+                        or "unclassified"
+                    ),
+                    "model_practice_category": str(
+                        candidate.metadata.get("model_practice_category")
+                        or "unclassified"
+                    ),
+                    "freshness": str(
+                        candidate.metadata.get("freshness_bucket") or "unknown"
                     ),
                     "prefilter_score": int(
                         candidate.metadata.get("prefilter_practical_score") or 0
@@ -1292,6 +1478,213 @@ class HorizonOrchestrator:
             hours = self.config.collection.time_window_hours
             since = datetime.now(timezone.utc) - timedelta(hours=hours)
         return since
+
+    def _determine_fallback_window(self, force_hours: int = None) -> datetime:
+        """Return the oldest allowed fallback time, distinct from the main window."""
+        primary_hours = force_hours or self.config.collection.time_window_hours
+        configured_hours = (
+            self.config.collection.fallback_window_hours
+            or primary_hours
+        )
+        hours = max(configured_hours, primary_hours)
+        return datetime.now(timezone.utc) - timedelta(hours=hours)
+
+    @staticmethod
+    def _source_practice_category(item: ContentItem) -> Optional[str]:
+        value = item.metadata.get("source_practice_category")
+        if value is None:
+            value = item.metadata.get("practice_category")
+        return str(value) if value else None
+
+    def _annotate_candidate_freshness(
+        self, items: List[ContentItem], fresh_since: datetime
+    ) -> None:
+        for item in items:
+            item.metadata.setdefault(
+                "source_practice_category", item.metadata.get("practice_category")
+            )
+            is_fallback = item.published_at < fresh_since
+            item.metadata["is_fallback"] = is_fallback
+            item.metadata["freshness_bucket"] = "fallback" if is_fallback else "fresh"
+            item.metadata["freshness_label"] = (
+                "近 7 日补充" if is_fallback else "今日新内容"
+            )
+
+    def _external_practice_minimums(self) -> Dict[str, int]:
+        return {
+            category: minimum
+            for category, minimum in self.config.digest.practice_minimums.items()
+            if minimum > 0
+            and not (
+                category == "hands-on" and self.config.digest.generated_hands_on
+            )
+        }
+
+    def _external_item_limit(self) -> int:
+        max_items = self.config.digest.max_items
+        if max_items is None:
+            return 10_000_000
+        reserved = 1 if self.config.digest.generated_hands_on else 0
+        return max(0, max_items - reserved)
+
+    @staticmethod
+    def _analysis_score(item: ContentItem) -> float:
+        analysis = item.processing.analysis if item.processing else None
+        return analysis.score if analysis and analysis.score is not None else -1.0
+
+    def _assert_external_practice_minimums(
+        self, items: List[ContentItem]
+    ) -> None:
+        counts: Dict[str, int] = defaultdict(int)
+        for item in items:
+            counts[str(item.metadata.get("practice_category") or "unclassified")] += 1
+        missing = [
+            f"{category} ({counts.get(category, 0)}/{minimum})"
+            for category, minimum in self._external_practice_minimums().items()
+            if counts.get(category, 0) < minimum
+        ]
+        if missing:
+            raise RuntimeError(
+                "Required practice columns remain empty after the targeted seven-day "
+                f"fallback; delivery aborted: {', '.join(missing)}"
+            )
+
+    def _assert_complete_practice_digest(self, items: List[ContentItem]) -> None:
+        counts: Dict[str, int] = defaultdict(int)
+        for item in items:
+            counts[str(item.metadata.get("practice_category") or "unclassified")] += 1
+        missing = [
+            f"{category} ({counts.get(category, 0)}/{minimum})"
+            for category, minimum in self.config.digest.practice_minimums.items()
+            if minimum > 0 and counts.get(category, 0) < minimum
+        ]
+        if missing:
+            raise RuntimeError(
+                "Incomplete six-column digest; delivery aborted: " + ", ".join(missing)
+            )
+        if self.config.digest.max_items is not None and len(items) > self.config.digest.max_items:
+            raise RuntimeError(
+                f"Digest contains {len(items)} items, above max_items="
+                f"{self.config.digest.max_items}."
+            )
+
+    def _build_hands_on_card(
+        self, items: List[ContentItem], *, today: str
+    ) -> ContentItem:
+        """Build one deterministic 15–30 minute ticket-Agent exercise."""
+        if not items:
+            raise RuntimeError("Cannot generate a hands-on card without a source item.")
+        anchor = max(items, key=self._analysis_score)
+        category = str(anchor.metadata.get("practice_category") or "method-pitfall")
+        templates = {
+            "today-use": (
+                "用一张脱敏工单验证新能力",
+                "一张已脱敏的历史售后工单、当前 Agent 输出、纸或表格",
+                "1. 写下当前输出；2. 用资讯中的已开放能力处理同一输入；"
+                "3. 对比事实准确、步骤完整和人工接管点；4. 记录一个保留或拒绝理由。",
+                "得到一行可复核结论：该能力是否值得进入下一轮原型，以及依据是什么。",
+            ),
+            "enterprise-case": (
+                "拆一张企业案例流程卡",
+                "本期案例、售后工单 Agent 的现有流程图或空白纸",
+                "1. 标出案例的业务对象；2. 写出实施前后流程；3. 圈出可验证结果；"
+                "4. 把其中一个环节映射到工单分流、知识检索或人工升级。",
+                "产出一张含对象、流程、结果和可迁移环节的四格案例卡。",
+            ),
+            "method-pitfall": (
+                "把一个方法变成坏案例检查项",
+                "本期方法或踩坑资讯、5 条脱敏工单样例或自拟边界样例",
+                "1. 提炼一个失败条件；2. 写成可判断的评估规则；3. 检查 5 条样例；"
+                "4. 记录误判及需要人工复核的位置。",
+                "新增 1 条评估规则、至少 1 个坏案例，并说明通过标准。",
+            ),
+            "beginner-tech": (
+                "写一张技术选型决策卡",
+                "本期技术翻译资讯、售后工单 Agent 当前方案",
+                "1. 用一句话解释概念；2. 写适用与不适用各一条；3. 选择它影响的"
+                "可靠性、成本、时延、隐私或人工复核决策；4. 写下待验证问题。",
+                "得到一张可用于 PRD 或面试的“是什么—何时用—如何验证”决策卡。",
+            ),
+            "china-career": (
+                "把行业信号映射到作品集证据",
+                "本期中国/求职信号、你的岗位清单或作品集目录",
+                "1. 提取一个真实能力要求；2. 找出现有项目中能证明它的材料；"
+                "3. 补一句量化或可演示证据；4. 若无证据，登记为下一项作品任务。",
+                "完成一条“岗位要求—项目证据—缺口”的三列表记录。",
+            ),
+        }
+        title, input_text, steps, completion = templates.get(
+            category, templates["method-pitfall"]
+        )
+        source = ArtifactSource(id="source-1", title=anchor.title, url=str(anchor.url))
+        artifacts: Dict[str, ContentArtifact] = {}
+        for language in self.config.ai.languages:
+            artifacts[language] = ContentArtifact(
+                language=language,
+                title=f"今天动手做｜{title}",
+                sources=[source],
+                blocks=[
+                    ContentBlock(
+                        id="summary",
+                        title="15–30 分钟行动卡",
+                        content=f"基于本期《{anchor.title}》生成，不要求额外寻找教程。",
+                        source_refs=["source-1"],
+                        primary=True,
+                    ),
+                    ContentBlock(id="time", title="时间", content="15–30 分钟"),
+                    ContentBlock(id="input", title="输入", content=input_text),
+                    ContentBlock(id="steps", title="步骤", content=steps),
+                    ContentBlock(
+                        id="completion", title="完成标准", content=completion
+                    ),
+                    ContentBlock(
+                        id="project_mapping",
+                        title="映射到售后工单 Agent",
+                        content="把产出保存到项目的评估集、PRD 决策记录或作品集证据中。",
+                    ),
+                ],
+            )
+        now = datetime.now(timezone.utc)
+        return ContentItem(
+            id=f"generated:hands-on:{today}",
+            source_type=anchor.source_type,
+            title=f"今天动手做｜{title}",
+            url=anchor.url,
+            content=f"基于本期资讯生成的 15–30 分钟售后工单 Agent 行动卡：{steps}",
+            author="AI FDE Radar",
+            published_at=now,
+            fetched_at=now,
+            metadata={
+                "practice_category": "hands-on",
+                "source_practice_category": "hands-on",
+                "model_practice_category": "hands-on",
+                "generated_hands_on": True,
+                "freshness_bucket": "generated",
+                "freshness_label": "今日生成",
+                "summary_depth": "action",
+                "based_on_item_id": anchor.id,
+            },
+            profile="ai-product-fde",
+            processing=ProcessingResult(
+                classification=ClassificationResult(
+                    profile="ai-product-fde", method="source_override"
+                ),
+                analysis=ContentAnalysis(
+                    score=None,
+                    reason="Generated from the selected digest; excluded from ranking.",
+                    summary=completion,
+                    tags=["ticket-agent", "hands-on"],
+                    practice_category="hands-on",
+                    actionable_within_7_days=True,
+                    action=steps,
+                    project_relevance="售后工单 Agent 的评估、PRD 或作品集证据",
+                    evidence_complete=True,
+                    category_requirements_met=True,
+                    evidence_note="Editorial exercise derived from one selected source.",
+                ),
+                artifacts=artifacts,
+            ),
+        )
 
     @staticmethod
     def ensure_analysis_health(
@@ -1435,6 +1828,126 @@ class HorizonOrchestrator:
                 all_items.extend(outcome.items)
 
             return all_items
+
+    async def fetch_targeted_sources(
+        self,
+        since: datetime,
+        practice_categories: set[str],
+    ) -> List[ContentItem]:
+        """Refetch only sources assigned to under-supplied practice pillars."""
+        self.last_fetch_report = None
+
+        def wanted(config) -> bool:
+            return bool(
+                getattr(config, "enabled", True)
+                and getattr(config, "practice_category", None)
+                in practice_categories
+            )
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            tasks = []
+            github_sources = [source for source in self.config.sources.github if wanted(source)]
+            if github_sources:
+                tasks.append(
+                    self._fetch_with_progress(
+                        "Fallback GitHub", GitHubScraper(github_sources, client), since
+                    )
+                )
+
+            if wanted(self.config.sources.hackernews):
+                tasks.append(
+                    self._fetch_with_progress(
+                        "Fallback Hacker News",
+                        HackerNewsScraper(self.config.sources.hackernews, client),
+                        since,
+                    )
+                )
+
+            rss_sources = [source for source in self.config.sources.rss if wanted(source)]
+            if rss_sources:
+                from .extractors import ExtractorRegistry
+
+                tasks.append(
+                    self._fetch_with_progress(
+                        "Fallback RSS Feeds",
+                        RSSScraper(
+                            rss_sources,
+                            client,
+                            ExtractorRegistry(self.config.extractors),
+                        ),
+                        since,
+                    )
+                )
+
+            reddit_config = self.config.sources.reddit
+            if reddit_config.enabled:
+                targeted_reddit = reddit_config.model_copy(
+                    update={
+                        "subreddits": [
+                            source for source in reddit_config.subreddits if wanted(source)
+                        ],
+                        "users": [source for source in reddit_config.users if wanted(source)],
+                    }
+                )
+                if targeted_reddit.subreddits or targeted_reddit.users:
+                    tasks.append(
+                        self._fetch_with_progress(
+                            "Fallback Reddit",
+                            RedditScraper(targeted_reddit, client),
+                            since,
+                        )
+                    )
+
+            oss_config = self.config.sources.ossinsight
+            if wanted(oss_config):
+                tasks.append(
+                    self._fetch_with_progress(
+                        "Fallback OSS Insight", OSSInsightScraper(oss_config, client), since
+                    )
+                )
+
+            gdelt_config = self.config.sources.gdelt
+            if gdelt_config and wanted(gdelt_config):
+                fallback_hours = max(
+                    1,
+                    math.ceil(
+                        (datetime.now(timezone.utc) - since).total_seconds() / 3600
+                    ),
+                )
+                targeted_gdelt = gdelt_config.model_copy(
+                    update={"timespan": f"{fallback_hours}h"}
+                )
+                tasks.append(
+                    self._fetch_with_progress(
+                        "Fallback GDELT", GDELTScraper(targeted_gdelt, client), since
+                    )
+                )
+
+            google_news_queries = self.config.sources.google_news_queries()
+            for index, gn_config in enumerate(google_news_queries, start=1):
+                if not wanted(gn_config):
+                    continue
+                tasks.append(
+                    self._fetch_with_progress(
+                        f"Fallback Google News [{index}: {gn_config.query[:36]}]",
+                        GoogleNewsScraper(gn_config, client),
+                        since,
+                    )
+                )
+
+            hf_config = self.config.sources.hf_papers
+            if wanted(hf_config):
+                tasks.append(
+                    self._fetch_with_progress(
+                        "Fallback Hugging Face Daily Papers",
+                        HuggingFacePapersScraper(hf_config, client),
+                        since,
+                    )
+                )
+
+            outcomes = await asyncio.gather(*tasks) if tasks else []
+            self.last_fetch_report = FetchReport(outcomes=list(outcomes))
+            return [item for outcome in outcomes for item in outcome.items]
 
     async def _fetch_with_progress(
         self, name: str, scraper, since: datetime
@@ -1726,6 +2239,39 @@ class HorizonOrchestrator:
         log: bool = True,
     ) -> FilteringPipelineResult:
         """Select final digest items using the same stages for every entry point."""
+        if self.config.digest.practice_minimums:
+            gated_items = [
+                item for item in items if self._passes_practice_hard_gates(item)
+            ]
+            initial = await self.filter_items(
+                gated_items,
+                threshold=0,
+                topic_dedup=topic_dedup,
+                apply_balance=False,
+                log=False,
+            )
+            candidates = initial.items
+            await self._expand_twitter_discussion(candidates)
+            candidates = [
+                item for item in candidates if self._passes_practice_hard_gates(item)
+            ]
+            threshold_count = sum(
+                self.passes_profile_filter(item, threshold) for item in candidates
+            )
+            balanced = self.apply_balanced_digest(candidates, log=log)
+            reserve_items = self._build_practice_reserve(
+                candidates, balanced.items, self.config.digest.fulltext_reserve
+            )
+            return FilteringPipelineResult(
+                items=balanced.items,
+                threshold_count=threshold_count,
+                topic_dedup_count=len(candidates),
+                topic_dedup_removed=len(gated_items) - len(candidates),
+                balanced_digest=balanced,
+                eligible_count=len(candidates),
+                reserve_items=reserve_items,
+            )
+
         initial = await self.filter_items(
             items,
             threshold=threshold,
@@ -1766,6 +2312,55 @@ class HorizonOrchestrator:
             eligible_count=len(eligible),
             reserve_items=reserve_items,
         )
+
+    def _passes_practice_hard_gates(self, item: ContentItem) -> bool:
+        analysis = item.processing.analysis if item.processing else None
+        if not analysis or analysis.score is None or not analysis.practice_category:
+            return False
+        profile_id = item.processing.classification.profile
+        settings = self.config.processing.profile_settings.get(profile_id)
+        uses_evidence_contract = bool(
+            settings and not settings.require_actionable_within_7_days
+        )
+        if uses_evidence_contract and (
+            analysis.evidence_complete is not True
+            or analysis.category_requirements_met is not True
+        ):
+            return False
+        if analysis.practice_category == "hands-on" and self.config.digest.generated_hands_on:
+            return False
+        return True
+
+    def _build_practice_reserve(
+        self,
+        candidates: List[ContentItem],
+        selected: List[ContentItem],
+        limit: int,
+    ) -> List[ContentItem]:
+        if limit <= 0:
+            return []
+        selected_ids = {item.id for item in selected}
+        remaining = [item for item in candidates if item.id not in selected_ids]
+        remaining.sort(key=self._minimum_candidate_priority)
+        reserve: List[ContentItem] = []
+        reserve_ids: set[str] = set()
+        for category in self._external_practice_minimums():
+            for item in remaining:
+                if item.id in reserve_ids:
+                    continue
+                if item.metadata.get("practice_category") == category:
+                    reserve.append(item)
+                    reserve_ids.add(item.id)
+                    break
+            if len(reserve) >= limit:
+                return reserve
+        for item in remaining:
+            if len(reserve) >= limit:
+                break
+            if item.id not in reserve_ids:
+                reserve.append(item)
+                reserve_ids.add(item.id)
+        return reserve
 
     def passes_profile_filter(
         self,
@@ -1921,6 +2516,9 @@ class HorizonOrchestrator:
         cannot introduce low-quality filler. Source and category caps keep one
         vendor or raw-paper feed from dominating the result.
         """
+        if self.config.digest.practice_minimums:
+            return self._apply_practice_minimum_digest(items, log=log)
+
         digest = self.config.digest
         sorted_items = sorted(
             items,
@@ -2095,6 +2693,191 @@ class HorizonOrchestrator:
             group_counts=dict(group_counts),
         )
 
+    def _minimum_candidate_priority(self, item: ContentItem) -> tuple[int, int, float, float]:
+        """Prefer the main window, then normal-threshold items, then score."""
+        return (
+            1 if item.metadata.get("is_fallback") else 0,
+            0 if self.passes_profile_filter(item) else 1,
+            -self._analysis_score(item),
+            -item.published_at.timestamp(),
+        )
+
+    def _apply_practice_minimum_digest(
+        self,
+        items: List[ContentItem],
+        *,
+        log: bool = True,
+    ) -> BalancedDigestResult:
+        """Guarantee each external pillar without using low-score items as filler."""
+        digest = self.config.digest
+        limit = self._external_item_limit()
+        candidates = [item for item in items if self._passes_practice_hard_gates(item)]
+        minimum_ordered = sorted(candidates, key=self._minimum_candidate_priority)
+        quality_ordered = sorted(candidates, key=self._analysis_score, reverse=True)
+        selected: List[ContentItem] = []
+        selected_ids: set[str] = set()
+        practice_counts: Dict[str, int] = defaultdict(int)
+        fallback_counts: Dict[str, int] = defaultdict(int)
+        source_counts: Dict[str, int] = defaultdict(int)
+        today_source_counts: Dict[str, int] = defaultdict(int)
+        group_counts: Dict[str, int] = defaultdict(int)
+        category_to_group: Dict[str, str] = {}
+        for group_key, group in digest.category_groups.items():
+            for category in group.categories:
+                category_to_group.setdefault(category, group_key)
+
+        def practice(item: ContentItem) -> str:
+            analysis = item.processing.analysis if item.processing else None
+            value = analysis.practice_category if analysis else None
+            return str(value or item.metadata.get("practice_category") or "unclassified")
+
+        def source_key(item: ContentItem) -> str:
+            hostname = (urlsplit(str(item.url)).hostname or "unknown").casefold()
+            return hostname.removeprefix("www.")
+
+        def can_add(item: ContentItem) -> bool:
+            key = source_key(item)
+            item_practice = practice(item)
+            if (
+                digest.max_items_per_source is not None
+                and source_counts[key] >= digest.max_items_per_source
+            ):
+                return False
+            if (
+                item_practice == "today-use"
+                and digest.max_today_use_per_source is not None
+                and today_source_counts[key] >= digest.max_today_use_per_source
+            ):
+                return False
+            source_category = item.metadata.get("category")
+            group_key = (
+                category_to_group.get(source_category)
+                if isinstance(source_category, str)
+                else None
+            )
+            if group_key is not None:
+                if group_counts[group_key] >= digest.category_groups[group_key].limit:
+                    return False
+            return True
+
+        def add(item: ContentItem, *, minimum_fill: bool = False) -> None:
+            item_practice = practice(item)
+            key = source_key(item)
+            item.metadata["practice_category"] = item_practice
+            item.metadata["model_practice_category"] = item_practice
+            if minimum_fill and (
+                not self.passes_profile_filter(item)
+                or item.metadata.get("is_fallback")
+            ):
+                item.metadata["minimum_backfill"] = True
+                item.metadata["below_threshold_minimum"] = not self.passes_profile_filter(item)
+            selected.append(item)
+            selected_ids.add(item.id)
+            practice_counts[item_practice] += 1
+            source_counts[key] += 1
+            if item_practice == "today-use":
+                today_source_counts[key] += 1
+            if item.metadata.get("is_fallback"):
+                fallback_counts[item_practice] += 1
+            source_category = item.metadata.get("category")
+            group_key = (
+                category_to_group.get(source_category)
+                if isinstance(source_category, str)
+                else None
+            )
+            if group_key is not None:
+                group_counts[group_key] += 1
+
+        # First reserve the guaranteed external columns. A below-threshold item
+        # can enter only here and only after passing all evidence hard gates.
+        for category, minimum in self._external_practice_minimums().items():
+            for item in minimum_ordered:
+                if len(selected) >= limit or practice_counts[category] >= minimum:
+                    break
+                if item.id in selected_ids or practice(item) != category or not can_add(item):
+                    continue
+                add(item, minimum_fill=True)
+
+        # Targets remain quality goals: fill them only with fresh items that
+        # clear the normal profile threshold.
+        for category, target in digest.practice_targets.items():
+            if category == "hands-on" and digest.generated_hands_on:
+                continue
+            for item in quality_ordered:
+                if len(selected) >= limit or practice_counts[category] >= target:
+                    break
+                if (
+                    item.id in selected_ids
+                    or practice(item) != category
+                    or item.metadata.get("is_fallback")
+                    or not self.passes_profile_filter(item)
+                    or not can_add(item)
+                ):
+                    continue
+                add(item)
+
+        if digest.quality_fill:
+            for item in quality_ordered:
+                if len(selected) >= limit:
+                    break
+                if (
+                    item.id in selected_ids
+                    or item.metadata.get("is_fallback")
+                    or not self.passes_profile_filter(item)
+                    or not can_add(item)
+                ):
+                    continue
+                add(item)
+
+        selected.sort(key=self._analysis_score, reverse=True)
+        self._annotate_digest_depth(selected)
+
+        shortfalls: Dict[str, str] = {}
+        for category, minimum in self._external_practice_minimums().items():
+            if practice_counts.get(category, 0) >= minimum:
+                continue
+            raw_matches = [item for item in items if practice(item) == category]
+            gated_matches = [item for item in candidates if practice(item) == category]
+            if not raw_matches:
+                reason = "model produced no candidate for this category"
+            elif not gated_matches:
+                reason = "all candidates failed source/evidence/category hard gates"
+            else:
+                reason = "eligible candidates were blocked by diversity caps or item limit"
+            shortfalls[category] = reason
+
+        if log:
+            self.console.print(
+                f"{self.icons['balance']} Six-column digest selected "
+                f"{len(selected)}/{len(items)} external items"
+            )
+            for category, target in digest.practice_targets.items():
+                generated_suffix = " (generated)" if (
+                    category == "hands-on" and digest.generated_hands_on
+                ) else ""
+                self.console.print(
+                    f"      {self.icons['detail']} practice {category}: "
+                    f"{practice_counts.get(category, 0)}/{target}{generated_suffix}"
+                )
+            for category, reason in shortfalls.items():
+                self.console.print(
+                    f"      [yellow]{self.icons['warning']} {category}: {reason}[/yellow]"
+                )
+            self.console.print("")
+
+        return BalancedDigestResult(
+            items=selected,
+            enabled=True,
+            practice_counts=dict(practice_counts),
+            practice_minimum_counts={
+                category: min(practice_counts.get(category, 0), minimum)
+                for category, minimum in self._external_practice_minimums().items()
+            },
+            fallback_counts=dict(fallback_counts),
+            shortfall_reasons=shortfalls,
+            group_counts=dict(group_counts),
+        )
+
     async def _expand_twitter_discussion(self, items: List[ContentItem]) -> None:
         """Second-stage: fetch reply text for important Twitter items and re-analyze.
 
@@ -2150,7 +2933,12 @@ class HorizonOrchestrator:
             f"   Re-analyzing {len(expanded)} Twitter items with reply context...\n"
         )
         ai_client = create_ai_client(self.config.ai)
-        analyzer = ContentAnalyzer(ai_client, self.profiles, console=self.console)
+        analyzer = ContentAnalyzer(
+            ai_client,
+            self.profiles,
+            console=self.console,
+            profile_settings=self.config.processing.profile_settings,
+        )
         await analyzer.analyze_batch(expanded)
 
     async def enrich_items(self, items: List[ContentItem]) -> EnrichmentBatchResult:
@@ -2199,7 +2987,12 @@ class HorizonOrchestrator:
         self.console.print(f"{self.icons['ai']} Analyzing content with AI...")
 
         ai_client = create_ai_client(self.config.ai)
-        analyzer = ContentAnalyzer(ai_client, self.profiles, console=self.console)
+        analyzer = ContentAnalyzer(
+            ai_client,
+            self.profiles,
+            console=self.console,
+            profile_settings=self.config.processing.profile_settings,
+        )
 
         return await analyzer.analyze_batch(items)
 
@@ -2226,6 +3019,7 @@ class HorizonOrchestrator:
         summarizer = DailySummarizer(
             profile_names=self.profiles.names,
             profile_order=self.config.digest.profile_order,
+            practice_targets=self.config.digest.practice_targets,
         )
 
         return await summarizer.generate_summary(items, date, total_fetched, language=language)

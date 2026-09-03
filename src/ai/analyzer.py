@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional
 from pydantic import ValidationError
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, MofNCompleteColumn
@@ -14,7 +14,7 @@ from .client import AIClient
 from .classifier import ContentClassifier
 from .prompting.analysis import analysis_system_prompt, analysis_user_prompt
 from .utils import parse_json_response
-from ..models import ContentAnalysis, ContentItem
+from ..models import ContentAnalysis, ContentItem, ProfileSettingsConfig
 from ..processing.content import select_content, split_content
 from ..processing.profiles import ProfileRegistry
 
@@ -28,11 +28,13 @@ class ContentAnalyzer:
         ai_client: AIClient,
         profiles: ProfileRegistry,
         console: Optional[Console] = None,
+        profile_settings: Optional[Dict[str, ProfileSettingsConfig]] = None,
     ):
         self.client = ai_client
         self.profiles = profiles
         self.classifier = ContentClassifier(ai_client, profiles)
         self.console = console or Console(stderr=True)
+        self.profile_settings = profile_settings or {}
 
     @staticmethod
     def _parse_json_response(response: str) -> Optional[dict]:
@@ -158,8 +160,15 @@ class ContentAnalyzer:
         )
 
         require_practice = profile.id in {"ai-product-fde", "tech-news"}
+        settings = self.profile_settings.get(profile.id)
+        require_action = (
+            settings.require_actionable_within_7_days if settings else True
+        )
+        require_evidence = require_practice and not require_action
         result, failure = self._validate_analysis_response(
-            response, require_practice=require_practice
+            response,
+            require_practice=require_practice,
+            require_evidence=require_evidence,
         )
         if result is None:
             repair_response = await self.client.complete(
@@ -172,7 +181,9 @@ class ContentAnalyzer:
                 temperature=0,
             )
             result, failure = self._validate_analysis_response(
-                repair_response, require_practice=require_practice
+                repair_response,
+                require_practice=require_practice,
+                require_evidence=require_evidence,
             )
 
         if result is None:
@@ -190,7 +201,12 @@ class ContentAnalyzer:
             return
 
         if require_practice:
-            self._apply_practice_gate(result)
+            if require_action:
+                self._apply_practice_gate(result)
+            item.metadata.setdefault(
+                "source_practice_category", item.metadata.get("practice_category")
+            )
+            item.metadata["model_practice_category"] = result.practice_category
             item.metadata["practice_category"] = result.practice_category
 
         if item.processing:
@@ -211,6 +227,7 @@ class ContentAnalyzer:
         response: str,
         *,
         require_practice: bool = False,
+        require_evidence: bool = False,
     ) -> tuple[Optional[ContentAnalysis], str]:
         parsed = cls._parse_json_response(response)
         if not isinstance(parsed, dict):
@@ -230,4 +247,11 @@ class ContentAnalyzer:
                 return None, "actionable_within_7_days is required for the practice radar"
             if not (result.project_relevance or "").strip():
                 return None, "project_relevance is required for the practice radar"
+        if require_evidence:
+            if result.evidence_complete is None:
+                return None, "evidence_complete is required for the practice radar"
+            if result.category_requirements_met is None:
+                return None, "category_requirements_met is required for the practice radar"
+            if not (result.evidence_note or "").strip():
+                return None, "evidence_note is required for the practice radar"
         return result, ""

@@ -118,6 +118,8 @@ class SummaryGroupView:
     profile_id: str
     name: str
     items: List[SummaryItemView]
+    actual_count: int = 0
+    target_count: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -133,9 +135,11 @@ class DailySummarizer:
         self,
         profile_names: Optional[Dict[str, Dict[str, str]]] = None,
         profile_order: Optional[List[str]] = None,
+        practice_targets: Optional[Dict[str, int]] = None,
     ):
         self.profile_names = profile_names or {}
         self.profile_order = profile_order or []
+        self.practice_targets = practice_targets or {}
 
     @staticmethod
     def _profile_id(item: ContentItem) -> str:
@@ -173,6 +177,14 @@ class DailySummarizer:
         for item in items:
             grouped_items.setdefault(self._group_id(item), []).append(item)
 
+        # Radar editions always expose the same pillar order. Successful runs
+        # enforce non-empty groups before rendering, while this also keeps dry
+        # previews and diagnostics structurally stable.
+        if self.practice_targets:
+            for group_id in PRACTICE_CATEGORY_ORDER:
+                if self.practice_targets.get(group_id, 0) > 0:
+                    grouped_items.setdefault(group_id, [])
+
         ordered_groups = list(grouped_items.items())
         if any(group_id in PRACTICE_CATEGORY_NAMES for group_id in grouped_items):
             practice_order = {
@@ -208,6 +220,12 @@ class DailySummarizer:
                     else None
                 )
                 analysis = item.processing.analysis if item.processing else None
+                display_title = artifact.title if artifact else item.title
+                if item.metadata.get("is_fallback"):
+                    fallback_prefix = (
+                        "【近 7 日补充】" if language == "zh" else "[7-day fallback] "
+                    )
+                    display_title = f"{fallback_prefix}{display_title}"
                 view_items.append(
                     SummaryItemView(
                         item=item,
@@ -215,7 +233,7 @@ class DailySummarizer:
                         global_index=global_index,
                         group_count=len(profile_items),
                         title=normalize_language(
-                            artifact.title if artifact else item.title, language
+                            display_title, language
                         ),
                         score=(
                             analysis.score
@@ -226,13 +244,22 @@ class DailySummarizer:
                     )
                 )
                 global_index += 1
+            base_name = normalize_language(
+                self.profile_name(profile_id, language), language
+            )
+            target_count = self.practice_targets.get(profile_id)
+            display_name = (
+                f"{base_name} {len(profile_items)}/{target_count}"
+                if target_count is not None
+                else base_name
+            )
             groups.append(
                 SummaryGroupView(
                     profile_id=profile_id,
-                    name=normalize_language(
-                        self.profile_name(profile_id, language), language
-                    ),
+                    name=display_name,
                     items=view_items,
+                    actual_count=len(profile_items),
+                    target_count=target_count,
                 )
             )
         return DailySummaryView(groups=groups, item_count=len(items))
@@ -285,9 +312,13 @@ class DailySummarizer:
                 title = _escape_markdown(view_item.title)
                 if language == "zh":
                     title = _pangu(title)
+                score_suffix = (
+                    ""
+                    if view_item.item.metadata.get("generated_hands_on")
+                    else f" \u2b50\ufe0f {view_item.score}/10"
+                )
                 toc_entries.append(
-                    f"{view_item.index}. [{title}](#{view_item.anchor_id}) "
-                    f"\u2b50\ufe0f {view_item.score}/10"
+                    f"{view_item.index}. [{title}](#{view_item.anchor_id}){score_suffix}"
                 )
             toc_sections.append("\n".join(toc_entries))
             body_sections.append(f"## {profile_name}\n\n")
@@ -346,10 +377,12 @@ class DailySummarizer:
                     title = _pangu(title)
                 url = _safe_url(view_item.item.url)
                 title_link = f"[{title}]({url})" if url else title
-                entries.append(
-                    f"{view_item.index}. {title_link} "
-                    f"\u2b50\ufe0f {view_item.score}/10"
+                score_suffix = (
+                    ""
+                    if view_item.item.metadata.get("generated_hands_on")
+                    else f" \u2b50\ufe0f {view_item.score}/10"
                 )
+                entries.append(f"{view_item.index}. {title_link}{score_suffix}")
             sections.append("\n".join(entries))
 
         return normalize_language(header + "\n\n".join(sections), language)
@@ -409,6 +442,7 @@ class DailySummarizer:
             else "?"
         )
         meta = item.metadata
+        generated_hands_on = bool(meta.get("generated_hands_on"))
 
         summary = analysis.summary if not artifact and analysis else ""
         primary_block = (
@@ -429,13 +463,19 @@ class DailySummarizer:
 
         # Source line with parts joined by " · ", link appended at end
         source_type = item.source_type.value
-        source_parts = [_escape_markdown(source_type)]
-        if meta.get("subreddit"):
-            source_parts.append(_escape_markdown(f"r/{meta['subreddit']}"))
-        if meta.get("feed_name"):
-            source_parts.append(_escape_markdown(meta["feed_name"]))
+        if generated_hands_on:
+            source_parts = [
+                "AI FDE Radar",
+                "基于本期资讯生成" if language == "zh" else "Generated from this edition",
+            ]
         else:
-            source_parts.append(_escape_markdown(item.author or "unknown"))
+            source_parts = [_escape_markdown(source_type)]
+            if meta.get("subreddit"):
+                source_parts.append(_escape_markdown(f"r/{meta['subreddit']}"))
+            if meta.get("feed_name"):
+                source_parts.append(_escape_markdown(meta["feed_name"]))
+            else:
+                source_parts.append(_escape_markdown(item.author or "unknown"))
         if item.published_at:
             if language == "zh":
                 source_parts.append(
@@ -455,9 +495,10 @@ class DailySummarizer:
 
         title_link = f"[{title}]({url})" if url else title
 
+        score_suffix = "" if generated_hands_on else f" \u2b50\ufe0f {score}/10"
         lines = [
             f'<a id="{anchor_id or f"item-{index}"}"></a>',
-            f"{'#' * heading_level} {title_link} \u2b50\ufe0f {score}/10",  # ⭐️
+            f"{'#' * heading_level} {title_link}{score_suffix}",
         ]
         if summary.strip():
             lines.extend(["", summary])
@@ -473,12 +514,19 @@ class DailySummarizer:
         else:
             category = meta.get("category") or self._profile_id(item)
         depth = meta.get("summary_depth") or "brief"
+        freshness = meta.get("freshness_label")
+        freshness_text = (
+            f" · **{'状态' if language == 'zh' else 'Freshness'}**: "
+            f"{_escape_markdown(str(freshness))}"
+            if freshness
+            else ""
+        )
         lines.extend(
             [
                 "",
                 f"**{labels['category']}**: {_escape_markdown(category)} · "
                 f"**{labels['region']}**: {_escape_markdown(region)} · "
-                f"**{labels['mode']}**: {_escape_markdown(depth)}",
+                f"**{labels['mode']}**: {_escape_markdown(depth)}{freshness_text}",
             ]
         )
 

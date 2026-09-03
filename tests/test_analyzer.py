@@ -8,7 +8,12 @@ import pytest
 import src.ai.analyzer as analyzer_module
 from src.ai.analyzer import ContentAnalyzer
 from src.ai.prompting.analysis import analysis_system_prompt
-from src.models import ContentArtifact, ContentItem, SourceType
+from src.models import (
+    ContentArtifact,
+    ContentItem,
+    ProfileSettingsConfig,
+    SourceType,
+)
 from src.processing import ProfileRegistry
 
 
@@ -317,3 +322,41 @@ def test_practice_gate_caps_item_without_seven_day_action():
     assert item.processing.analysis is not None
     assert item.processing.analysis.score == 5.9
     assert "score capped at 5.9" in item.processing.analysis.reason
+
+
+def test_radar_profile_keeps_high_value_non_actionable_score_and_both_categories():
+    async def complete(**kwargs):
+        return json.dumps(
+            _practice_result(
+                score=8.4,
+                actionable_within_7_days=False,
+                action="",
+                practice_category="beginner-tech",
+                evidence_complete=True,
+                category_requirements_met=True,
+                evidence_note="Official documentation supports the product decision.",
+            )
+        )
+
+    item = _make_item("rss:test:non-actionable-insight")
+    item.metadata["practice_category"] = "method-pitfall"
+    analyzer = ContentAnalyzer(
+        SimpleNamespace(complete=complete),
+        PROFILES,
+        profile_settings={
+            "tech-news": ProfileSettingsConfig(
+                threshold=7,
+                require_actionable_within_7_days=False,
+            )
+        },
+    )
+
+    asyncio.run(analyzer._analyze_item(item))
+
+    assert item.processing is not None
+    assert item.processing.analysis is not None
+    assert item.processing.analysis.score == 8.4
+    assert "score capped" not in item.processing.analysis.reason
+    assert item.metadata["source_practice_category"] == "method-pitfall"
+    assert item.metadata["model_practice_category"] == "beginner-tech"
+    assert item.metadata["practice_category"] == "beginner-tech"

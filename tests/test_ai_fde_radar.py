@@ -457,8 +457,9 @@ def test_feishu_webhook_token_is_redacted_from_log_url() -> None:
 def test_github_config_has_expected_sources_and_targets() -> None:
     path = Path(__file__).resolve().parents[1] / "data" / "config.github.json"
     payload = Config.model_validate(json.loads(path.read_text(encoding="utf-8")))
-    assert len(payload.sources.google_news_queries()) == 8
+    assert len(payload.sources.google_news_queries()) == 9
     assert payload.collection.time_window_hours == 30
+    assert payload.collection.fallback_window_hours == 168
     assert payload.collection.candidate_limit == 60
     assert payload.digest.max_items == 20
     assert sum(payload.digest.practice_targets.values()) == 20
@@ -470,6 +471,20 @@ def test_github_config_has_expected_sources_and_targets() -> None:
         "china-career": 2,
         "hands-on": 1,
     }
+    assert payload.digest.practice_minimums == {
+        "today-use": 1,
+        "enterprise-case": 1,
+        "method-pitfall": 1,
+        "beginner-tech": 1,
+        "china-career": 1,
+        "hands-on": 1,
+    }
+    assert payload.digest.generated_hands_on is True
+    assert all(
+        settings.threshold == 7.0
+        and settings.require_actionable_within_7_days is False
+        for settings in payload.processing.profile_settings.values()
+    )
     assert payload.digest.category_groups["raw-papers"].limit == 1
 
 
