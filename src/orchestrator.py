@@ -3,6 +3,7 @@
 import asyncio
 import json
 import math
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -57,7 +58,7 @@ _TRACKING_QUERY_PARAMETERS = {
 }
 
 _AI_SIGNAL_TERMS = {
-    " ai ",
+    "ai",
     "llm",
     "machine learning",
     "artificial intelligence",
@@ -80,6 +81,238 @@ _AI_SIGNAL_TERMS = {
     "人工智能",
     "智能体",
 }
+
+_PRACTICAL_ACTION_SIGNALS = {
+    "how to",
+    "tutorial",
+    "guide",
+    "walkthrough",
+    "step-by-step",
+    "quickstart",
+    "cookbook",
+    "template",
+    "starter",
+    "playbook",
+    "case study",
+    "customer story",
+    "postmortem",
+    "lessons learned",
+    "production incident",
+    "available now",
+    "generally available",
+    "教程",
+    "指南",
+    "实战",
+    "手把手",
+    "复盘",
+    "踩坑",
+    "案例",
+    "落地",
+    "上线",
+    "工作流",
+}
+
+_PROJECT_RELEVANCE_SIGNALS = {
+    "customer support",
+    "customer service",
+    "support agent",
+    "service desk",
+    "ticket triage",
+    "ticketing",
+    "case management",
+    "knowledge base",
+    "knowledge management",
+    "human escalation",
+    "human-in-the-loop",
+    "售后",
+    "客服",
+    "工单",
+    "知识库",
+    "人工转接",
+    "人工审核",
+}
+
+_PRACTICAL_NEGATIVE_TITLE_SIGNALS = {
+    "funding",
+    "fundraise",
+    "valuation",
+    "stock price",
+    "earnings",
+    "lawsuit",
+    "copyright suit",
+    "government sides",
+    "bans ai",
+    "rumor",
+    "opinion",
+    "融资",
+    "估值",
+    "股价",
+    "财报",
+    "诉讼",
+    "版权案",
+    "传闻",
+    "高管观点",
+}
+
+_DISTANT_TECH_TITLE_SIGNALS = {
+    "cuda",
+    "gpu kernel",
+    "speculative decoding",
+    "model training",
+    "training infrastructure",
+    "robotics",
+    "芯片",
+    "算力集群",
+    "训练框架",
+    "机器人",
+}
+
+_PRACTICE_CATEGORY_SIGNALS = {
+    "today-use": {
+        "released",
+        "release",
+        "introducing",
+        "launch",
+        "launched",
+        "available",
+        "update",
+        "new feature",
+        "changelog",
+        "发布",
+        "推出",
+        "上线",
+        "开放使用",
+        "更新",
+        "新功能",
+    },
+    "enterprise-case": {
+        "case study",
+        "customer story",
+        "deployed",
+        "deployment",
+        "rollout",
+        "adoption",
+        "roi",
+        "workflow",
+        "customer support",
+        "customer service",
+        "case management",
+        "案例",
+        "落地",
+        "部署",
+        "采用率",
+        "工作流",
+        "客服",
+        "售后",
+        "工单",
+    },
+    "method-pitfall": {
+        "evaluation",
+        "evals",
+        "benchmark methodology",
+        "failure",
+        "reliability",
+        "observability",
+        "guardrail",
+        "permissions",
+        "security",
+        "postmortem",
+        "human-in-the-loop",
+        "cost per",
+        "评测",
+        "评估",
+        "失败",
+        "可靠性",
+        "可观测",
+        "权限",
+        "安全",
+        "成本",
+        "踩坑",
+        "复盘",
+    },
+    "beginner-tech": {
+        "explained",
+        "introduction",
+        "beginner",
+        "guide",
+        "tutorial",
+        "walkthrough",
+        "architecture",
+        "comparison",
+        "入门",
+        "科普",
+        "原理",
+        "指南",
+        "教程",
+        "架构",
+        "对比",
+    },
+    "china-career": {
+        "product manager",
+        "forward deployed engineer",
+        "fde",
+        "job description",
+        "hiring",
+        "interview",
+        "portfolio",
+        "career",
+        "产品经理",
+        "应用实施",
+        "岗位",
+        "招聘",
+        "面试",
+        "作品集",
+        "能力要求",
+        "厦门",
+    },
+    "hands-on": {
+        "hands-on",
+        "tutorial",
+        "template",
+        "starter",
+        "quickstart",
+        "cookbook",
+        "code example",
+        "sample app",
+        "github repo",
+        "demo",
+        "实战",
+        "教程",
+        "模板",
+        "示例代码",
+        "开源项目",
+    },
+}
+
+_MEASURABLE_EVIDENCE_PATTERN = re.compile(
+    r"(?:\b\d+(?:\.\d+)?\s?%|\b\d+(?:\.\d+)?x\b|"
+    r"\b(?:latency|accuracy|resolution rate|handle time|cost|roi|csat)\b|"
+    r"(?:准确率|解决率|转人工率|响应时间|处理时长|成本|采用率|满意度))",
+    re.IGNORECASE,
+)
+
+_VERSION_ONLY_RELEASE_PATTERN = re.compile(
+    r"\breleased?\s+(?:v?\d|b\d)|\b(?:v?\d+(?:\.\d+){1,3}|b\d{3,})\b",
+    re.IGNORECASE,
+)
+
+
+def _contains_signal(text: str, signal: str) -> bool:
+    """Match ASCII terms on token boundaries and CJK terms as substrings."""
+    folded_text = text.casefold()
+    folded_signal = signal.casefold()
+    if folded_signal.isascii():
+        return bool(
+            re.search(
+                rf"(?<![a-z0-9]){re.escape(folded_signal)}(?![a-z0-9])",
+                folded_text,
+            )
+        )
+    return folded_signal in folded_text
+
+
+def _signal_count(text: str, signals: set[str]) -> int:
+    return sum(_contains_signal(text, signal) for signal in signals)
 
 
 def _deduplication_url_key(url: str) -> tuple[str, str, str, str, Optional[int], str, str]:
@@ -341,6 +574,7 @@ class HorizonOrchestrator:
             self.console.print(
                 f"{self.icons['ai']} Analyzed {len(analyzed_items)} items with AI\n"
             )
+            self.ensure_analysis_health(analyzed_items)
 
             # 7. Filter, deduplicate, and balance the digest
             filtering_result = await self.select_digest_items(
@@ -539,6 +773,8 @@ class HorizonOrchestrator:
         Empty cells are backfilled from the remaining best evidence, preserving
         the configured quality-first behavior.
         """
+        limit = self.config.collection.candidate_limit
+        practice_budgets = self._candidate_practice_budgets(limit)
         eligible = []
         for item in items:
             if (
@@ -547,16 +783,21 @@ class HorizonOrchestrator:
             ):
                 continue
             if item.source_type == SourceType.HACKERNEWS:
-                searchable = f" {(item.title + ' ' + (item.content or '')).casefold()} "
-                if not any(term in searchable for term in _AI_SIGNAL_TERMS):
+                if not any(
+                    _contains_signal(item.title, term) for term in _AI_SIGNAL_TERMS
+                ):
                     continue
+            practical_score = self._practical_signal_score(item)
+            item.metadata["prefilter_practical_score"] = practical_score
+            # Practical-radar profiles deliberately spend fewer than the maximum
+            # model calls when the open-web supply lacks usable evidence.
+            if practice_budgets and practical_score < 3:
+                continue
             eligible.append(item)
 
         eligible.sort(
             key=self._candidate_priority
         )
-        limit = self.config.collection.candidate_limit
-        practice_budgets = self._candidate_practice_budgets(limit)
         matrix_budgets = (
             {} if practice_budgets else self._candidate_matrix_budgets(limit)
         )
@@ -571,6 +812,12 @@ class HorizonOrchestrator:
         else:
             limited = []
             selected_ids: set[str] = set()
+            selected_source_counts: Dict[str, int] = defaultdict(int)
+            hard_source_cap = (
+                max(2, self.config.digest.max_items_per_source or 3)
+                if practice_budgets
+                else limit
+            )
 
             for quota_key, budget in quota_budgets.items():
                 cell_candidates = [
@@ -587,10 +834,14 @@ class HorizonOrchestrator:
 
                 for item in cell_candidates:
                     source_key = self._candidate_source_key(item)
-                    if source_counts[source_key] >= per_source_soft_cap:
+                    if (
+                        source_counts[source_key] >= per_source_soft_cap
+                        or selected_source_counts[source_key] >= hard_source_cap
+                    ):
                         continue
                     cell_selected.append(item)
                     source_counts[source_key] += 1
+                    selected_source_counts[source_key] += 1
                     if len(cell_selected) >= budget:
                         break
 
@@ -599,7 +850,11 @@ class HorizonOrchestrator:
                     for item in cell_candidates:
                         if item.id in cell_ids:
                             continue
+                        source_key = self._candidate_source_key(item)
+                        if selected_source_counts[source_key] >= hard_source_cap:
+                            continue
                         cell_selected.append(item)
+                        selected_source_counts[source_key] += 1
                         if len(cell_selected) >= budget:
                             break
 
@@ -612,8 +867,12 @@ class HorizonOrchestrator:
                 if len(limited) >= limit:
                     break
                 if item.id not in selected_ids:
+                    source_key = self._candidate_source_key(item)
+                    if selected_source_counts[source_key] >= hard_source_cap:
+                        continue
                     limited.append(item)
                     selected_ids.add(item.id)
+                    selected_source_counts[source_key] += 1
 
         if len(limited) < len(items):
             self.console.print(
@@ -637,12 +896,54 @@ class HorizonOrchestrator:
         return limited
 
     @staticmethod
-    def _candidate_priority(item: ContentItem) -> tuple[int, float, int]:
+    def _candidate_priority(item: ContentItem) -> tuple[int, int, float, int]:
         return (
+            -int(item.metadata.get("prefilter_practical_score") or 0),
             int(item.metadata.get("source_tier", 2)),
             -item.published_at.timestamp(),
             -int(item.metadata.get("score") or item.metadata.get("stars_gained") or 0),
         )
+
+    @staticmethod
+    def _practical_signal_score(item: ContentItem) -> int:
+        """Estimate whether an item contains evidence worth a paid AI review.
+
+        This is intentionally a recall-oriented heuristic, not the publication
+        score.  It rewards concrete actions, project proximity, measurements,
+        and pillar-specific evidence while removing obvious news-cycle noise.
+        DeepSeek remains responsible for the final 0-10 judgment.
+        """
+        title = item.title or ""
+        body = (item.content or "")[:3000]
+        combined = f"{title}\n{body}"
+        practice = str(item.metadata.get("practice_category") or "")
+
+        title_actions = min(3, _signal_count(title, _PRACTICAL_ACTION_SIGNALS))
+        body_actions = min(2, _signal_count(body, _PRACTICAL_ACTION_SIGNALS))
+        project_hits = min(2, _signal_count(combined, _PROJECT_RELEVANCE_SIGNALS))
+        category_hits = min(
+            3,
+            _signal_count(combined, _PRACTICE_CATEGORY_SIGNALS.get(practice, set())),
+        )
+
+        score = title_actions * 2 + body_actions + project_hits * 2 + category_hits * 2
+        if _MEASURABLE_EVIDENCE_PATTERN.search(combined):
+            score += 2
+        score -= min(
+            6,
+            _signal_count(title, _PRACTICAL_NEGATIVE_TITLE_SIGNALS) * 3,
+        )
+        score -= min(6, _signal_count(title, _DISTANT_TECH_TITLE_SIGNALS) * 4)
+
+        # A bare library build/version is release churn, not beginner learning.
+        if (
+            len(title) <= 100
+            and _VERSION_ONLY_RELEASE_PATTERN.search(title)
+            and title_actions <= 1
+            and project_hits == 0
+        ):
+            score -= 3
+        return score
 
     def _candidate_matrix_budgets(self, limit: int) -> Dict[str, int]:
         """Scale final matrix targets to the model-scoring candidate limit."""
@@ -715,6 +1016,8 @@ class HorizonOrchestrator:
     @staticmethod
     def _candidate_source_key(item: ContentItem) -> str:
         """Return a stable source bucket used only for prefilter diversity."""
+        if item.source_type == SourceType.HACKERNEWS:
+            return SourceType.HACKERNEWS.value
         metadata = item.metadata
         for field_name in (
             "feed_name",
@@ -913,6 +1216,69 @@ class HorizonOrchestrator:
             },
         }
 
+        if dry_run:
+            ranked_diagnostics = sorted(
+                analyzed_items,
+                key=lambda candidate: (
+                    -(
+                        candidate.processing.analysis.score
+                        if candidate.processing
+                        and candidate.processing.analysis
+                        and candidate.processing.analysis.score is not None
+                        else -1
+                    ),
+                    -int(candidate.metadata.get("prefilter_practical_score") or 0),
+                ),
+            )[:20]
+            payload["analysis"]["top_candidates"] = [
+                {
+                    "title": candidate.title[:200],
+                    "source": self._candidate_source_key(candidate)[:160],
+                    "practice_category": str(
+                        (
+                            candidate.processing.analysis.practice_category
+                            if candidate.processing and candidate.processing.analysis
+                            else None
+                        )
+                        or candidate.metadata.get("practice_category")
+                        or "unclassified"
+                    ),
+                    "prefilter_score": int(
+                        candidate.metadata.get("prefilter_practical_score") or 0
+                    ),
+                    "model_score": (
+                        candidate.processing.analysis.score
+                        if candidate.processing and candidate.processing.analysis
+                        else None
+                    ),
+                    "actionable_within_7_days": (
+                        candidate.processing.analysis.actionable_within_7_days
+                        if candidate.processing and candidate.processing.analysis
+                        else None
+                    ),
+                    "reason": (
+                        candidate.processing.analysis.reason[:400]
+                        if candidate.processing and candidate.processing.analysis
+                        else ""
+                    ),
+                    "action": (
+                        candidate.processing.analysis.action[:400]
+                        if candidate.processing
+                        and candidate.processing.analysis
+                        and candidate.processing.analysis.action
+                        else ""
+                    ),
+                    "project_relevance": (
+                        candidate.processing.analysis.project_relevance[:400]
+                        if candidate.processing
+                        and candidate.processing.analysis
+                        and candidate.processing.analysis.project_relevance
+                        else ""
+                    ),
+                }
+                for candidate in ranked_diagnostics
+            ]
+
         output_dir = Path(self.config.metrics.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         serialized = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
@@ -926,6 +1292,29 @@ class HorizonOrchestrator:
             hours = self.config.collection.time_window_hours
             since = datetime.now(timezone.utc) - timedelta(hours=hours)
         return since
+
+    @staticmethod
+    def ensure_analysis_health(
+        analyzed_items: List[ContentItem],
+        min_success_ratio: float = 0.8,
+    ) -> None:
+        """Abort delivery when model scoring failed for too many candidates."""
+        if not analyzed_items:
+            return
+        valid_scores = sum(
+            1
+            for item in analyzed_items
+            if item.processing
+            and item.processing.analysis
+            and item.processing.analysis.score is not None
+        )
+        required = max(1, math.ceil(len(analyzed_items) * min_success_ratio))
+        if valid_scores < required:
+            raise RuntimeError(
+                "AI analysis health check failed: "
+                f"{valid_scores}/{len(analyzed_items)} candidates received valid scores; "
+                f"at least {required} are required. Delivery aborted."
+            )
 
     async def fetch_all_sources(self, since: datetime) -> List[ContentItem]:
         """Fetch content from all configured sources.

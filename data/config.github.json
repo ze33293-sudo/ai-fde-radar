@@ -55,7 +55,7 @@
         "profile": "ai-product-fde",
         "region": "china",
         "source_tier": 1,
-        "practice_category": "china-career"
+        "practice_category": "today-use"
       },
       {
         "type": "repo_releases",
@@ -65,7 +65,7 @@
         "profile": "tech-news",
         "region": "china",
         "source_tier": 2,
-        "practice_category": "china-career"
+        "practice_category": "today-use"
       },
       {
         "type": "repo_releases",
@@ -267,7 +267,7 @@
     "google_news": [
       {
         "enabled": true,
-        "query": "(site:openai.com OR site:anthropic.com OR site:blog.google OR site:microsoft.com) (release OR available OR feature OR update) (ChatGPT OR Claude OR Gemini OR Copilot OR agent)",
+        "query": "(site:openai.com OR site:anthropic.com OR site:blog.google OR site:microsoft.com) (released OR available now OR generally available OR changelog OR new feature) (ChatGPT OR Claude OR Gemini OR Copilot OR agent)",
         "language": "en",
         "country": "US",
         "max_results": 40,
@@ -279,7 +279,7 @@
       },
       {
         "enabled": true,
-        "query": "(AI OR agent OR copilot) (customer support OR sales OR knowledge management OR analytics OR office workflow) (case study OR deployment OR rollout OR adoption OR ROI)",
+        "query": "(site:microsoft.com/en/customers/story OR site:cloud.google.com/customers OR site:aws.amazon.com/solutions/case-studies OR site:openai.com/index) (AI OR agent OR copilot) (customer service OR customer support OR case management OR knowledge base) (deployment OR adoption OR ROI OR resolution rate OR handle time)",
         "language": "en",
         "country": "US",
         "max_results": 50,
@@ -291,7 +291,7 @@
       },
       {
         "enabled": true,
-        "query": "(AI agent OR LLM OR RAG) (evaluation OR postmortem OR failure OR reliability OR permissions OR human in the loop OR cost) (production OR workflow)",
+        "query": "(site:anthropic.com/engineering OR site:openai.com OR site:learn.microsoft.com OR site:cloud.google.com) (AI agent OR LLM OR RAG) (evaluation OR postmortem OR reliability OR permissions OR human in the loop OR cost) (production OR workflow)",
         "language": "en",
         "country": "US",
         "max_results": 50,
@@ -303,7 +303,7 @@
       },
       {
         "enabled": true,
-        "query": "(RAG OR MCP OR tool calling OR AI agent OR LLM evaluation) (guide OR tutorial OR explained OR example OR open source)",
+        "query": "(RAG OR MCP OR tool calling OR AI agent evaluation) (beginner guide OR tutorial OR explained OR architecture OR comparison) (production OR customer support OR workflow)",
         "language": "en",
         "country": "US",
         "max_results": 40,
@@ -315,7 +315,7 @@
       },
       {
         "enabled": true,
-        "query": "(AI agent OR RAG OR LLM evaluation) (hands-on OR tutorial OR template OR starter OR GitHub) (customer support OR workflow OR product manager)",
+        "query": "(AI agent OR RAG OR LLM evaluation) (hands-on OR tutorial OR cookbook OR template OR starter OR code example OR GitHub repo) (customer support OR ticket triage OR knowledge base OR workflow)",
         "language": "en",
         "country": "US",
         "max_results": 30,
@@ -327,7 +327,7 @@
       },
       {
         "enabled": true,
-        "query": "(人工智能 OR 大模型 OR 智能体 OR AI产品) (客服 OR 销售 OR 知识库 OR 数据分析 OR 办公) (落地 OR 案例 OR 工作流 OR 评测 OR ROI)",
+        "query": "(人工智能 OR 大模型 OR 智能体 OR AI产品) (售后 OR 客服 OR 工单 OR 知识库 OR 数据分析) (落地 OR 案例 OR 部署 OR 工作流) (解决率 OR 转人工率 OR 处理时长 OR 成本 OR 采用率)",
         "language": "zh-CN",
         "country": "CN",
         "ceid": "CN:zh-Hans",
@@ -340,7 +340,7 @@
       },
       {
         "enabled": true,
-        "query": "(AI产品经理 OR AI应用实施 OR 大模型产品经理 OR FDE OR 智能体产品) (岗位 OR 招聘 OR 能力 OR 实战 OR 复盘 OR 厦门)",
+        "query": "(AI产品经理 OR AI应用实施 OR 大模型产品经理 OR FDE OR 智能体产品) (岗位 OR 招聘 OR 能力要求 OR 面试 OR 作品集 OR 实战 OR 厦门)",
         "language": "zh-CN",
         "country": "CN",
         "ceid": "CN:zh-Hans",
@@ -353,7 +353,7 @@
       },
       {
         "enabled": true,
-        "query": "(人人都是产品经理 OR InfoQ OR 少数派 OR 机器之心 OR 量子位) (AI产品 OR 智能体 OR RAG) (踩坑 OR 复盘 OR 评测 OR 工作流 OR 实战)",
+        "query": "(人人都是产品经理 OR InfoQ OR 少数派 OR 机器之心 OR 量子位) (AI产品 OR 智能体 OR RAG OR 知识库) (踩坑 OR 复盘 OR 评测 OR 权限 OR 成本 OR 工作流 OR 实战)",
         "language": "zh-CN",
         "country": "CN",
         "ceid": "CN:zh-Hans",
