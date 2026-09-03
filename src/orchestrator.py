@@ -643,6 +643,29 @@ class HorizonOrchestrator:
             else:
                 self.last_fetch_report = primary_fetch_report
 
+            # Feed/index snippets are intentionally cheap to score, but they are
+            # often too thin for the model to verify an original source or all
+            # category-specific evidence (especially enterprise workflow +
+            # outcome).  Hydrate only a small, balanced set for still-missing
+            # columns, then re-run analysis on the complete source before the
+            # hard gates are applied.  This keeps the gates strict without
+            # creating the impossible "verify before fetching" ordering.
+            qualified_categories = {
+                str(item.metadata.get("practice_category"))
+                for item in analyzed_items
+                if self._passes_practice_hard_gates(item)
+            }
+            missing_for_verification = {
+                category
+                for category in external_minimums
+                if category not in qualified_categories
+            }
+            if missing_for_verification:
+                await self._hydrate_and_reanalyze_practice_rescue(
+                    analyzed_items,
+                    missing_for_verification,
+                )
+
             if not all_items:
                 if external_minimums:
                     raise RuntimeError(
@@ -1193,6 +1216,118 @@ class HorizonOrchestrator:
                 "without usable original content.[/yellow]\n"
             )
         return kept
+
+    async def _hydrate_and_reanalyze_practice_rescue(
+        self,
+        items: List[ContentItem],
+        missing_categories: set[str],
+    ) -> List[ContentItem]:
+        """Verify a bounded, category-balanced rescue pool against full text.
+
+        Initial model scoring operates on feed/index excerpts to keep discovery
+        affordable.  When those excerpts are insufficient for the evidence hard
+        gates, this method fetches complete original content for at most the
+        configured full-text reserve and analyzes those same candidates again.
+        The source category is only a targeting hint; the second model pass may
+        still reject or reclassify the item.
+        """
+        categories = [
+            category
+            for category in self.config.digest.practice_targets
+            if category in missing_categories and category != "hands-on"
+        ]
+        if (
+            not categories
+            or not getattr(self.config.collection, "fetch_fulltext", False)
+        ):
+            return []
+
+        budget = max(
+            len(categories),
+            int(self.config.digest.fulltext_reserve or 0),
+        )
+        budget = min(budget, len(items))
+        if budget <= 0:
+            return []
+
+        def rescue_priority(
+            item: ContentItem,
+            category: str,
+        ) -> tuple[int, int, int, int, float, float]:
+            analysis = item.processing.analysis if item.processing else None
+            return (
+                0 if analysis and analysis.practice_category == category else 1,
+                0 if analysis and analysis.category_requirements_met is True else 1,
+                0 if analysis and analysis.evidence_complete is True else 1,
+                0 if self.passes_profile_filter(item) else 1,
+                -self._analysis_score(item),
+                -item.published_at.timestamp(),
+            )
+
+        pools: Dict[str, List[ContentItem]] = {}
+        for category in categories:
+            matching = [
+                item
+                for item in items
+                if (
+                    self._source_practice_category(item) == category
+                    or (
+                        item.processing
+                        and item.processing.analysis
+                        and item.processing.analysis.practice_category == category
+                    )
+                )
+                and item.processing
+                and item.processing.analysis
+                and item.processing.analysis.score is not None
+            ]
+            matching.sort(key=lambda item: rescue_priority(item, category))
+            pools[category] = matching
+
+        rescue_items: List[ContentItem] = []
+        rescue_ids: set[str] = set()
+        while len(rescue_items) < budget:
+            added = False
+            for category in categories:
+                pool = pools[category]
+                while pool and pool[0].id in rescue_ids:
+                    pool.pop(0)
+                if not pool:
+                    continue
+                item = pool.pop(0)
+                item.metadata["verification_target_practice_category"] = category
+                # Force original-source success in hydrate_selected_items even
+                # when this is a fresh item with an otherwise high model score.
+                item.metadata["minimum_backfill"] = True
+                rescue_items.append(item)
+                rescue_ids.add(item.id)
+                added = True
+                if len(rescue_items) >= budget:
+                    break
+            if not added:
+                break
+
+        if not rescue_items:
+            return []
+
+        self.console.print(
+            f"{self.icons['fetch']} Fetching original content for "
+            f"{len(rescue_items)} evidence-verification candidates across "
+            f"{len(categories)} missing columns\n"
+        )
+        hydrated = await self.hydrate_selected_items(rescue_items)
+        if not hydrated:
+            return []
+
+        verified = await self.analyze_items(hydrated)
+        for item in verified:
+            item.metadata["fulltext_reanalyzed"] = True
+        passed = sum(self._passes_practice_hard_gates(item) for item in verified)
+        self.console.print(
+            f"{self.icons['ai']} Full-text verification passed "
+            f"{passed}/{len(verified)} candidates\n"
+        )
+        return verified
 
     def _annotate_digest_depth(self, items: List[ContentItem]) -> None:
         for rank, item in enumerate(items, start=1):

@@ -55,6 +55,15 @@ def analysis_user_prompt(
     content_section: str,
     discussion_section: str,
 ) -> str:
+    verification_target = item.metadata.get("verification_target_practice_category")
+    verification_section = ""
+    if verification_target:
+        verification_section = f"""
+Verification target category: {verification_target}
+This original source was fetched because that required column still lacks verified
+evidence. Use the target category only if its hard definition is genuinely met;
+otherwise choose the best evidence-supported category and mark the target's gap
+honestly. Never approve an item merely to fill a quota."""
     return f"""Analyze the following content.
 
 Title: {item.title}
@@ -66,5 +75,6 @@ Region: {item.metadata.get("region", "global")}
 Suggested practice category: {item.metadata.get("practice_category") or "none"}
 The suggested category is discovery metadata only. Preserve it as context, but choose
 exactly one final category from the evidence; do not force a match.
+{verification_section}
 {content_section}
 {discussion_section}"""
