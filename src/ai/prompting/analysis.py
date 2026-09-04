@@ -27,7 +27,7 @@ def _analysis_contract(profile: LoadedProfile) -> str:
   "reason": "<concise explanation using the configured scoring weights>",
   "summary": "<one-sentence source-grounded summary>",
   "tags": ["<tag>", "..."],
-  "practice_category": "<today-use|enterprise-case|method-pitfall|beginner-tech|china-career|hands-on>",
+  "practice_category": "<today-use|enterprise-case|method-pitfall|beginner-tech|industry-trend|hands-on>",
   "actionable_within_7_days": <true or false>,
   "action": "<one concrete 15-30 minute action, or empty when false>",
   "project_relevance": "<specific link to an after-sales ticket Agent, AI PM/FDE portfolio, or job search>",
@@ -75,10 +75,12 @@ Region: {item.metadata.get("region", "global")}
 Suggested practice category: {item.metadata.get("practice_category") or "none"}
 The suggested category is discovery metadata only. Preserve it as context, but choose
 exactly one final category from the evidence; do not force a match.
-When a first-party China-market source is suggested as china-career, use that category
-if the central value is a meaningful domestic product/ecosystem change or a concrete
-shift in the skills applied-AI roles need. Do not move it to today-use merely because
-the changed tool is available, and do not approve routine version churn.
+When a source is suggested as industry-trend, use that category only when its central
+value is a meaningful market or business shift: pricing/business model, platform
+ecosystem strategy, partnership or acquisition, regulation, or aggregate adoption.
+Do not use it for one product feature, one customer case, routine version churn, a job
+listing, or unsupported market commentary. Prefer first-party announcements, official
+policy documents, and evidence-rich reporting that links to primary material.
 {verification_section}
 {content_section}
 {discussion_section}"""

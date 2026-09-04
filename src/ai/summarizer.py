@@ -96,7 +96,7 @@ PRACTICE_CATEGORY_NAMES = {
     "enterprise-case": {"en": "Enterprise Cases", "zh": "企业落地案例"},
     "method-pitfall": {"en": "Methods & Pitfalls", "zh": "产品方法与踩坑"},
     "beginner-tech": {"en": "Beginner Tech", "zh": "小白技术翻译"},
-    "china-career": {"en": "China & Career", "zh": "中国与求职信号"},
+    "industry-trend": {"en": "Industry & Business Signals", "zh": "行业趋势与商业信号"},
     "hands-on": {"en": "Hands-on Today", "zh": "今天动手做"},
 }
 PRACTICE_CATEGORY_ORDER = list(PRACTICE_CATEGORY_NAMES)

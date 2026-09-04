@@ -28,7 +28,7 @@ Choose exactly one category and set `category_requirements_met` accurately:
 - `enterprise-case`: require all three: a named business object/user, an implementation workflow, and a verifiable result or outcome. Pure vendor promotion and claims without process or result fail this category.
 - `method-pitfall`: a reusable lesson about needs, scope, RAG, evaluation, permissions, human collaboration, launch, adoption, or ROI. The source must establish the lesson rather than merely state an opinion.
 - `beginner-tech`: explains a technical change or concept in a way that affects a specific product decision such as reliability, latency, cost, privacy, architecture, or human review.
-- `china-career`: a China-market case, company/tool change, role capability shift, Xiamen opportunity, or remote-job signal. Preserve an original company, product, or recruitment source.
+- `industry-trend`: a consequential market or business shift such as pricing/business-model change, platform ecosystem strategy, partnership or acquisition, regulation, or aggregate enterprise adoption. Require a first-party announcement, official policy document, or evidence-rich report with primary material. Exclude single features, single customer cases, routine releases, job listings, and unsupported commentary.
 - `hands-on`: do not assign external news to this category. The program generates the daily hands-on card separately.
 
 Set `evidence_complete` true only when the supplied original source is accessible enough to verify the central claim. Use `evidence_note` to name the evidence and its largest gap. One item must have only one primary category. The source-suggested category is advisory and may be corrected.
