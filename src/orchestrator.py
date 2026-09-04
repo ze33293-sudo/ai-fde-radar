@@ -719,6 +719,10 @@ class HorizonOrchestrator:
                     important_items + reserve_items,
                     log=False,
                 ).items
+            important_items = await self._repair_fulltext_practice_shortfalls(
+                important_items,
+                analyzed_items,
+            )
             self._assert_external_practice_minimums(important_items)
             self._annotate_digest_depth(important_items)
 
@@ -1371,6 +1375,87 @@ class HorizonOrchestrator:
         )
         return verified
 
+    async def _repair_fulltext_practice_shortfalls(
+        self,
+        selected_items: List[ContentItem],
+        analyzed_items: List[ContentItem],
+    ) -> List[ContentItem]:
+        """Backfill columns whose selected article failed final full-text checks.
+
+        A feed excerpt can pass scoring while the original page later returns a
+        403 or an empty document.  In that case, keep the already verified
+        columns and use other scored candidates from only the missing columns.
+        Candidates already proven inaccessible are never retried here.
+        """
+        missing = self._missing_external_practice_categories(selected_items)
+        if not missing:
+            return selected_items
+
+        selected_ids = {item.id for item in selected_items}
+        repair_pool = [
+            item
+            for item in analyzed_items
+            if item.id not in selected_ids
+            and item.metadata.get("fulltext_status") != "unavailable"
+            and (
+                self._source_practice_category(item) in missing
+                or (
+                    item.processing
+                    and item.processing.analysis
+                    and item.processing.analysis.practice_category in missing
+                )
+            )
+        ]
+        if not repair_pool:
+            return selected_items
+
+        self.console.print(
+            f"{self.icons['fetch']} Repairing full-text shortfalls for: "
+            f"{', '.join(sorted(missing))}\n"
+        )
+
+        # Reuse already hydrated, hard-gated reserves first.  Any remaining
+        # shortfall gets a bounded full-text fetch plus a fresh model verdict.
+        reusable = [
+            item
+            for item in repair_pool
+            if item.metadata.get("fulltext_status") == "success"
+            and self._passes_practice_hard_gates(item)
+        ]
+        repaired = self.apply_balanced_digest(
+            selected_items + reusable,
+            log=False,
+        ).items
+        missing = self._missing_external_practice_categories(repaired)
+        if missing:
+            reusable_ids = {item.id for item in reusable}
+            rescue_pool = [
+                item
+                for item in repair_pool
+                if item.id not in reusable_ids
+                and item.metadata.get("fulltext_status") != "unavailable"
+            ]
+            verified = await self._hydrate_and_reanalyze_practice_rescue(
+                rescue_pool,
+                missing,
+            )
+            if verified:
+                repaired = self.apply_balanced_digest(
+                    repaired + verified,
+                    log=False,
+                ).items
+
+        recovered = (
+            self._missing_external_practice_categories(selected_items)
+            - self._missing_external_practice_categories(repaired)
+        )
+        if recovered:
+            self.console.print(
+                f"{self.icons['balance']} Recovered full-text columns: "
+                f"{', '.join(sorted(recovered))}\n"
+            )
+        return repaired
+
     def _annotate_digest_depth(self, items: List[ContentItem]) -> None:
         for rank, item in enumerate(items, start=1):
             item.metadata["digest_rank"] = rank
@@ -1703,6 +1788,18 @@ class HorizonOrchestrator:
             return 10_000_000
         reserved = 1 if self.config.digest.generated_hands_on else 0
         return max(0, max_items - reserved)
+
+    def _missing_external_practice_categories(
+        self, items: List[ContentItem]
+    ) -> set[str]:
+        counts: Dict[str, int] = defaultdict(int)
+        for item in items:
+            counts[str(item.metadata.get("practice_category") or "unclassified")] += 1
+        return {
+            category
+            for category, minimum in self._external_practice_minimums().items()
+            if counts.get(category, 0) < minimum
+        }
 
     @staticmethod
     def _analysis_score(item: ContentItem) -> float:
@@ -2531,16 +2628,38 @@ class HorizonOrchestrator:
         remaining.sort(key=self._minimum_candidate_priority)
         reserve: List[ContentItem] = []
         reserve_ids: set[str] = set()
-        for category in self._external_practice_minimums():
-            for item in remaining:
-                if item.id in reserve_ids:
+
+        def practice(item: ContentItem) -> str:
+            analysis = item.processing.analysis if item.processing else None
+            return str(
+                (analysis.practice_category if analysis else None)
+                or item.metadata.get("practice_category")
+                or "unclassified"
+            )
+
+        # Spread the bounded reserve across all required columns.  Using the
+        # model's final category (rather than only the source hint) is critical
+        # when the model corrected discovery-time classification.
+        categories = list(self._external_practice_minimums())
+        pools = {
+            category: [item for item in remaining if practice(item) == category]
+            for category in categories
+        }
+        while len(reserve) < limit:
+            added = False
+            for category in categories:
+                while pools[category] and pools[category][0].id in reserve_ids:
+                    pools[category].pop(0)
+                if not pools[category]:
                     continue
-                if item.metadata.get("practice_category") == category:
-                    reserve.append(item)
-                    reserve_ids.add(item.id)
-                    break
-            if len(reserve) >= limit:
-                return reserve
+                item = pools[category].pop(0)
+                reserve.append(item)
+                reserve_ids.add(item.id)
+                added = True
+                if len(reserve) >= limit:
+                    return reserve
+            if not added:
+                break
         for item in remaining:
             if len(reserve) >= limit:
                 break
