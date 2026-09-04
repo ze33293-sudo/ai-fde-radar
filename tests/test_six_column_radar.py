@@ -4,7 +4,7 @@ import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -159,6 +159,15 @@ def test_digest_config_rejects_impossible_minimums_and_generated_card_shape() ->
             max_items=6,
             practice_targets={"today-use": 1},
             practice_minimums={"today-use": 2},
+        )
+
+    with pytest.raises(ValueError, match="must cover every required external"):
+        DigestConfig(
+            max_items=20,
+            practice_targets=TARGETS,
+            practice_minimums=MINIMUMS,
+            generated_hands_on=True,
+            preflight_practice_reserves={"enterprise-case": 2},
         )
     with pytest.raises(ValueError, match="practice_targets.hands-on"):
         DigestConfig(
@@ -465,3 +474,230 @@ def test_metrics_report_each_column_funnel_and_generated_card(tmp_path) -> None:
     assert diagnostics["china-career"]["fallback"] == 1
     assert diagnostics["hands-on"]["final"] == 1
     assert payload["selection"]["generated_hands_on_cards"] == 1
+
+
+def test_preflight_opens_reserves_and_rejects_inaccessible_items_before_ai(
+    monkeypatch,
+) -> None:
+    config = radar_config()
+    config.collection.fetch_fulltext = True
+    config.digest.preflight_practice_reserves = {
+        "today-use": 1,
+        "enterprise-case": 2,
+        "method-pitfall": 1,
+        "beginner-tech": 1,
+        "china-career": 1,
+    }
+    orchestrator = HorizonOrchestrator(config, SimpleNamespace())
+    candidates = [
+        radar_item(index, category)
+        for index, category in enumerate(EXTERNAL_CATEGORIES, start=1)
+    ]
+    failed_enterprise = candidates[1]
+    replacement = radar_item(20, "enterprise-case")
+    candidates.append(replacement)
+
+    async def hydrate(items):  # type: ignore[no-untyped-def]
+        kept = []
+        for candidate in items:
+            if candidate.id == failed_enterprise.id:
+                candidate.metadata["fulltext_status"] = "unavailable"
+                continue
+            candidate.metadata["fulltext_status"] = "success"
+            if candidate.metadata["practice_category"] == "enterprise-case":
+                candidate.title = "Pictet enterprise AI rollout result"
+                candidate.content = (
+                    "Pictet deployed an AI workflow through a staged rollout and "
+                    "integrated an API gateway. The team reduced a two-week process "
+                    "to two hours, improving delivery time by 90%. " * 3
+                )
+            else:
+                candidate.content = "Accessible original source evidence. " * 20
+            kept.append(candidate)
+        return kept
+
+    monkeypatch.setattr(orchestrator, "hydrate_selected_items", hydrate)
+    usable, ready = asyncio.run(
+        orchestrator._preflight_practice_source_supply(candidates)
+    )
+
+    assert failed_enterprise not in usable
+    assert replacement in usable
+    assert ready == set(EXTERNAL_CATEGORIES)
+    assert replacement.metadata["analysis_input_fulltext"] is True
+    assert (
+        replacement.metadata["verification_target_practice_category"]
+        == "enterprise-case"
+    )
+
+
+def test_run_aborts_before_model_when_required_source_preflight_is_empty(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    config = radar_config()
+    config.collection.fetch_fulltext = True
+    config.collection.history_path = str(tmp_path / "seen.json")
+    config.collection.sent_marker_dir = str(tmp_path / "sent")
+    config.digest.preflight_practice_reserves = {
+        category: 1 for category in EXTERNAL_CATEGORIES
+    }
+    orchestrator = HorizonOrchestrator(config, SimpleNamespace())
+    candidates = [
+        radar_item(index, category)
+        for index, category in enumerate(EXTERNAL_CATEGORIES, start=1)
+    ]
+    for candidate in candidates:
+        candidate.processing = None
+        candidate.content = "Official AI workflow source with measurable results. " * 8
+
+    async def fetch_primary(_since):  # type: ignore[no-untyped-def]
+        orchestrator.last_fetch_report = FetchReport(
+            [SourceFetchOutcome("fixture", "success", candidates)]
+        )
+        return candidates
+
+    async def fetch_fallback(_since, _categories):  # type: ignore[no-untyped-def]
+        orchestrator.last_fetch_report = FetchReport(
+            [SourceFetchOutcome("fallback-fixture", "empty")]
+        )
+        return []
+
+    async def hydrate(items):  # type: ignore[no-untyped-def]
+        kept = []
+        for candidate in items:
+            if candidate.metadata["practice_category"] == "enterprise-case":
+                candidate.metadata["fulltext_status"] = "unavailable"
+                continue
+            candidate.metadata["fulltext_status"] = "success"
+            kept.append(candidate)
+        return kept
+
+    analyze = AsyncMock(side_effect=AssertionError("model must not be called"))
+    monkeypatch.setattr(orchestrator, "fetch_all_sources", fetch_primary)
+    monkeypatch.setattr(orchestrator, "fetch_targeted_sources", fetch_fallback)
+    monkeypatch.setattr(orchestrator, "hydrate_selected_items", hydrate)
+    monkeypatch.setattr(orchestrator, "analyze_items", analyze)
+
+    with pytest.raises(RuntimeError, match="no model request was made"):
+        asyncio.run(orchestrator.run(dry_run=True))
+
+    analyze.assert_not_awaited()
+
+
+def test_preflight_only_success_exits_without_model_or_delivery(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    config = radar_config()
+    config.collection.fetch_fulltext = True
+    config.collection.history_path = str(tmp_path / "seen.json")
+    config.collection.sent_marker_dir = str(tmp_path / "sent")
+    config.digest.preflight_practice_reserves = {
+        category: 1 for category in EXTERNAL_CATEGORIES
+    }
+    orchestrator = HorizonOrchestrator(config, SimpleNamespace())
+    candidates = [
+        radar_item(index, category)
+        for index, category in enumerate(EXTERNAL_CATEGORIES, start=1)
+    ]
+    for candidate in candidates:
+        candidate.processing = None
+
+    async def fetch_primary(_since):  # type: ignore[no-untyped-def]
+        orchestrator.last_fetch_report = FetchReport(
+            [SourceFetchOutcome("fixture", "success", candidates)]
+        )
+        return candidates
+
+    async def hydrate(items):  # type: ignore[no-untyped-def]
+        for candidate in items:
+            candidate.metadata["fulltext_status"] = "success"
+            if candidate.metadata["practice_category"] == "enterprise-case":
+                candidate.title = "企业客服智能体落地案例"
+                candidate.content = (
+                    "某企业部署售后智能体工作流并接入知识库，逐步实施人工复核。"
+                    "上线后处理时间从两小时缩短到20分钟，自动化率提升到80%。" * 5
+                )
+            else:
+                candidate.content = "Accessible official AI source evidence. " * 20
+        return items
+
+    analyze = AsyncMock(side_effect=AssertionError("model must not be called"))
+    notifier = SimpleNamespace(
+        send_daily_summary=AsyncMock(),
+        send_failure=AsyncMock(),
+    )
+    orchestrator.webhook_notifier = notifier
+    create_client = MagicMock(side_effect=AssertionError("AI client must not be created"))
+    monkeypatch.setattr("src.orchestrator.create_ai_client", create_client)
+    monkeypatch.setattr(orchestrator, "fetch_all_sources", fetch_primary)
+    monkeypatch.setattr(orchestrator, "hydrate_selected_items", hydrate)
+    monkeypatch.setattr(orchestrator, "analyze_items", analyze)
+
+    asyncio.run(orchestrator.run(dry_run=True, preflight_only=True))
+
+    analyze.assert_not_awaited()
+    create_client.assert_not_called()
+    notifier.send_daily_summary.assert_not_awaited()
+    notifier.send_failure.assert_not_awaited()
+
+
+def test_official_full_feed_copy_survives_article_page_403_equivalent(
+    monkeypatch,
+) -> None:
+    config = radar_config()
+    config.collection.fetch_fulltext = True
+    orchestrator = HorizonOrchestrator(config, SimpleNamespace())
+    candidate = radar_item(90, "today-use")
+    candidate.content = "Official complete release article with availability details. " * 20
+    candidate.metadata.update(
+        {
+            "source_tier": 1,
+            "feed_content_kind": "full",
+            "minimum_backfill": True,
+        }
+    )
+
+    async def unavailable(_self, _url, _client):  # type: ignore[no-untyped-def]
+        return None
+
+    monkeypatch.setattr(
+        "src.orchestrator.TrafilaturaExtractor.extract",
+        unavailable,
+    )
+    kept = asyncio.run(orchestrator.hydrate_selected_items([candidate]))
+
+    assert kept == [candidate]
+    assert candidate.metadata["fulltext_status"] == "official-feed"
+    assert candidate.metadata["original_evidence_source"] == "official-feed"
+
+
+def test_github_release_api_body_survives_article_page_failure(
+    monkeypatch,
+) -> None:
+    config = radar_config()
+    config.collection.fetch_fulltext = True
+    orchestrator = HorizonOrchestrator(config, SimpleNamespace())
+    candidate = radar_item(91, "today-use")
+    candidate.source_type = SourceType.GITHUB
+    candidate.content = "Official release notes with usable feature details. " * 20
+    candidate.metadata.update(
+        {
+            "api_content_kind": "release-body",
+            "minimum_backfill": True,
+        }
+    )
+
+    async def unavailable(_self, _url, _client):  # type: ignore[no-untyped-def]
+        return None
+
+    monkeypatch.setattr(
+        "src.orchestrator.TrafilaturaExtractor.extract",
+        unavailable,
+    )
+    kept = asyncio.run(orchestrator.hydrate_selected_items([candidate]))
+
+    assert kept == [candidate]
+    assert candidate.metadata["fulltext_status"] == "official-api"
+    assert candidate.metadata["original_evidence_source"] == "github-release-api"

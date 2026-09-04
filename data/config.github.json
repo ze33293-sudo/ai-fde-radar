@@ -334,6 +334,30 @@
         ]
       }
     ],
+    "customer_stories": [
+      {
+        "name": "Claude Customer Stories",
+        "url": "https://claude.com/customers",
+        "story_path_prefix": "/customers/",
+        "max_results": 30,
+        "category": "official-enterprise-customer-case",
+        "profile": "ai-product-fde",
+        "region": "global",
+        "source_tier": 1,
+        "practice_category": "enterprise-case"
+      },
+      {
+        "name": "OpenAI Customer Stories",
+        "url": "https://openai.com/business/customer-stories/",
+        "story_path_prefix": "/index/",
+        "max_results": 30,
+        "category": "official-enterprise-customer-case",
+        "profile": "ai-product-fde",
+        "region": "global",
+        "source_tier": 1,
+        "practice_category": "enterprise-case"
+      }
+    ],
     "reddit": {
       "enabled": true,
       "subreddits": [
@@ -583,6 +607,13 @@
       "method-pitfall": 8,
       "beginner-tech": 10,
       "china-career": 9
+    },
+    "preflight_practice_reserves": {
+      "today-use": 2,
+      "enterprise-case": 6,
+      "method-pitfall": 2,
+      "beginner-tech": 2,
+      "china-career": 3
     },
     "generated_hands_on": true,
     "quality_fill": true,

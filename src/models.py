@@ -21,6 +21,7 @@ class SourceType(str, Enum):
     GDELT = "gdelt"
     GOOGLE_NEWS = "google_news"
     HF_PAPERS = "hf_papers"
+    CUSTOMER_STORIES = "customer_stories"
 
 
 class SourceDefinition(NamedTuple):
@@ -43,6 +44,9 @@ SOURCE_REGISTRY = {
     SourceType.GDELT.value: SourceDefinition("gdelt"),
     SourceType.GOOGLE_NEWS.value: SourceDefinition("google_news"),
     SourceType.HF_PAPERS.value: SourceDefinition("hf_papers"),
+    SourceType.CUSTOMER_STORIES.value: SourceDefinition(
+        "customer_stories", config_is_list=True
+    ),
 }
 
 ProfileRoute = Optional[Union[str, List[str]]]
@@ -302,6 +306,31 @@ class RSSSourceConfig(BaseModel):
         return normalized
 
 
+class CustomerStoriesSourceConfig(BaseModel):
+    """First-party customer-story listing page configuration."""
+
+    name: str
+    url: HttpUrl
+    enabled: bool = True
+    story_path_prefix: str = "/customers/"
+    max_results: int = Field(default=30, gt=0, le=100)
+    category: Optional[str] = "official-enterprise-customer-case"
+    profile: ProfileRoute = "ai-product-fde"
+    region: SourceRegion = "global"
+    source_tier: int = Field(default=1, ge=1, le=3)
+    practice_category: Optional[PracticeCategory] = "enterprise-case"
+
+    @field_validator("story_path_prefix")
+    @classmethod
+    def validate_story_path_prefix(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized.startswith("/") or not normalized.endswith("/"):
+            raise ValueError(
+                "customer_stories.story_path_prefix must start and end with '/'"
+            )
+        return normalized
+
+
 class RedditSubredditConfig(BaseModel):
     """Configuration for monitoring a specific subreddit."""
 
@@ -520,6 +549,9 @@ class SourcesConfig(BaseModel):
     hf_papers: HuggingFacePapersConfig = Field(
         default_factory=HuggingFacePapersConfig
     )
+    customer_stories: List[CustomerStoriesSourceConfig] = Field(
+        default_factory=list
+    )
 
     def google_news_queries(self) -> List[GoogleNewsConfig]:
         """Return Google News configuration in normalized list form.
@@ -687,6 +719,9 @@ class DigestConfig(BaseModel):
     candidate_practice_reserves: Dict[PracticeCategory, int] = Field(
         default_factory=dict
     )
+    preflight_practice_reserves: Dict[PracticeCategory, int] = Field(
+        default_factory=dict
+    )
     generated_hands_on: bool = False
     quality_fill: bool = True
     deep_items: int = Field(default=5, ge=0)
@@ -710,6 +745,7 @@ class DigestConfig(BaseModel):
         "practice_targets",
         "practice_minimums",
         "candidate_practice_reserves",
+        "preflight_practice_reserves",
     )
     @classmethod
     def validate_positive_targets(cls, value: Dict[str, int]) -> Dict[str, int]:
@@ -752,6 +788,24 @@ class DigestConfig(BaseModel):
             if self.candidate_practice_reserves.get("hands-on", 0) > 0:
                 raise ValueError(
                     "digest.generated_hands_on cannot reserve model candidates for hands-on"
+                )
+        if self.preflight_practice_reserves:
+            missing_preflight = [
+                category
+                for category, minimum in self.practice_minimums.items()
+                if category != "hands-on"
+                and minimum > 0
+                and self.preflight_practice_reserves.get(category, 0) <= 0
+            ]
+            if missing_preflight:
+                raise ValueError(
+                    "digest.preflight_practice_reserves must cover every required "
+                    "external practice category: "
+                    + ", ".join(sorted(missing_preflight))
+                )
+            if self.preflight_practice_reserves.get("hands-on", 0) > 0:
+                raise ValueError(
+                    "digest.preflight_practice_reserves cannot include generated hands-on"
                 )
         return self
 

@@ -43,6 +43,7 @@ from .scrapers.ossinsight import OSSInsightScraper
 from .scrapers.gdelt import GDELTScraper
 from .scrapers.google_news import GoogleNewsScraper
 from .scrapers.hf_papers import HuggingFacePapersScraper
+from .scrapers.customer_stories import CustomerStoriesScraper
 from .ai.client import create_ai_client
 from .ai.analyzer import ContentAnalyzer
 from .ai.summarizer import DailySummarizer
@@ -507,6 +508,7 @@ class HorizonOrchestrator:
         *,
         dry_run: bool = False,
         force_send: bool = False,
+        preflight_only: bool = False,
     ) -> None:
         """Execute the complete workflow.
 
@@ -514,7 +516,10 @@ class HorizonOrchestrator:
             force_hours: Optional override for time window in hours
             dry_run: Generate artifacts without external delivery or state commits.
             force_send: Bypass the same-day successful-send guard.
+            preflight_only: Verify source supply and exit before any AI request.
         """
+        if preflight_only:
+            dry_run = True
         local_today = datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d")
         sent_marker = self._sent_marker_path(local_today)
         if sent_marker.exists() and not force_send and not dry_run:
@@ -591,6 +596,91 @@ class HorizonOrchestrator:
             model_candidates = self.prefilter_candidates(
                 history_result.items, limit=initial_limit
             )
+            fallback_items: List[ContentItem] = []
+            fallback_search_performed = False
+            fallback_window = self._determine_fallback_window(force_hours)
+
+            # Open a small reserve of source pages before the first paid model
+            # request. If a required column has no usable original evidence, do
+            # its seven-day targeted search now and fail for free when supply is
+            # still insufficient.
+            if self.config.digest.preflight_practice_reserves:
+                model_candidates, preflight_ready = (
+                    await self._preflight_practice_source_supply(model_candidates)
+                )
+                preflight_missing = set(external_minimums) - preflight_ready
+                remaining_slots = max(0, candidate_limit - len(model_candidates))
+                if preflight_missing and fallback_window < since and remaining_slots:
+                    self.console.print(
+                        f"{self.icons['fetch']} Targeted seven-day fallback search "
+                        "before AI scoring: "
+                        f"{', '.join(sorted(preflight_missing))}\n"
+                    )
+                    fallback_search_performed = True
+                    fallback_items = await self.fetch_targeted_sources(
+                        fallback_window, preflight_missing
+                    )
+                    fallback_fetch_report = self.last_fetch_report
+                    self.last_fetch_report = FetchReport(
+                        outcomes=(
+                            primary_fetch_report.outcomes
+                            if primary_fetch_report
+                            else []
+                        )
+                        + (
+                            fallback_fetch_report.outcomes
+                            if fallback_fetch_report
+                            else []
+                        )
+                    )
+                    all_items.extend(fallback_items)
+                    combined_merged = self.merge_cross_source_duplicates(all_items)
+                    self._annotate_candidate_freshness(combined_merged, since)
+                    combined_history = history.filter_new(combined_merged)
+                    initial_keys = {
+                        _deduplication_url_key(str(item.url))
+                        for item in history_result.items
+                    }
+                    additional_items = [
+                        item
+                        for item in combined_history.items
+                        if _deduplication_url_key(str(item.url)) not in initial_keys
+                        and self._source_practice_category(item) in preflight_missing
+                    ]
+                    fallback_candidates = self.prefilter_candidates(
+                        additional_items,
+                        limit=remaining_slots,
+                        practice_categories=preflight_missing,
+                    )
+                    model_candidates.extend(fallback_candidates)
+                    model_candidates, preflight_ready = (
+                        await self._preflight_practice_source_supply(
+                            model_candidates,
+                            preflight_missing,
+                        )
+                    )
+                    merged_items = combined_merged
+                    history_result = combined_history
+                    preflight_missing = set(external_minimums) - preflight_ready
+
+                if preflight_missing:
+                    raise RuntimeError(
+                        "Required practice source preflight failed before AI scoring; "
+                        "no model request was made: "
+                        + ", ".join(sorted(preflight_missing))
+                    )
+
+            if preflight_only:
+                if not self.config.digest.preflight_practice_reserves:
+                    raise RuntimeError(
+                        "Preflight-only mode requires digest.preflight_practice_reserves."
+                    )
+                self.console.print(
+                    f"[bold green]{self.icons['success']} Source preflight passed; "
+                    "exiting before AI scoring.[/bold green]"
+                )
+                return
+
             analyzed_items = await self.analyze_items(model_candidates)
             self.console.print(
                 f"{self.icons['ai']} Analyzed {len(analyzed_items)} items with AI\n"
@@ -607,10 +697,13 @@ class HorizonOrchestrator:
                 for category in external_minimums
                 if category not in qualified_categories
             }
-            fallback_items: List[ContentItem] = []
-            fallback_window = self._determine_fallback_window(force_hours)
             remaining_slots = max(0, candidate_limit - len(analyzed_items))
-            if missing_for_search and fallback_window < since and remaining_slots:
+            if (
+                missing_for_search
+                and fallback_window < since
+                and remaining_slots
+                and not fallback_search_performed
+            ):
                 self.console.print(
                     f"{self.icons['fetch']} Targeted seven-day fallback search after "
                     f"scoring: {', '.join(sorted(missing_for_search))}\n"
@@ -618,6 +711,7 @@ class HorizonOrchestrator:
                 fallback_items = await self.fetch_targeted_sources(
                     fallback_window, missing_for_search
                 )
+                fallback_search_performed = True
                 fallback_fetch_report = self.last_fetch_report
                 self.last_fetch_report = FetchReport(
                     outcomes=(primary_fetch_report.outcomes if primary_fetch_report else [])
@@ -642,13 +736,25 @@ class HorizonOrchestrator:
                     limit=remaining_slots,
                     practice_categories=missing_for_search,
                 )
+                if self.config.digest.preflight_practice_reserves:
+                    fallback_candidates, _ = (
+                        await self._preflight_practice_source_supply(
+                            fallback_candidates,
+                            missing_for_search,
+                        )
+                    )
+                    fallback_candidates = [
+                        item
+                        for item in fallback_candidates
+                        if item.metadata.get("preflight_evidence_ready") is True
+                    ]
                 fallback_analyzed = await self.analyze_items(fallback_candidates)
                 self.ensure_analysis_health(fallback_analyzed)
                 model_candidates.extend(fallback_candidates)
                 analyzed_items.extend(fallback_analyzed)
                 merged_items = combined_merged
                 history_result = combined_history
-            else:
+            elif not fallback_search_performed:
                 self.last_fetch_report = primary_fetch_report
 
             # Feed/index snippets are intentionally cheap to score, but they are
@@ -1223,6 +1329,14 @@ class HorizonOrchestrator:
 
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             async def hydrate(item: ContentItem) -> tuple[ContentItem, bool]:
+                if (
+                    item.metadata.get("fulltext_status")
+                    in {"success", "official-feed", "official-api"}
+                    and len((item.content or "").strip()) >= 200
+                ):
+                    return item, True
+                if item.metadata.get("fulltext_status") == "unavailable":
+                    return item, False
                 async with semaphore:
                     extracted = await extractor.extract(str(item.url), client)
                 if extracted and len(extracted.strip()) >= 200:
@@ -1236,6 +1350,29 @@ class HorizonOrchestrator:
                     else:
                         item.content = extracted
                     item.metadata["fulltext_status"] = "success"
+                    return item, True
+
+                has_official_feed_copy = bool(
+                    item.source_type == SourceType.RSS
+                    and item.metadata.get("source_tier") == 1
+                    and item.metadata.get("feed_content_kind") == "full"
+                    and len((item.content or "").strip()) >= 500
+                )
+                if has_official_feed_copy:
+                    item.metadata["fulltext_status"] = "official-feed"
+                    item.metadata["original_evidence_source"] = "official-feed"
+                    return item, True
+
+                has_official_api_copy = bool(
+                    item.source_type == SourceType.GITHUB
+                    and item.metadata.get("api_content_kind") == "release-body"
+                    and len((item.content or "").strip()) >= 200
+                )
+                if has_official_api_copy:
+                    item.metadata["fulltext_status"] = "official-api"
+                    item.metadata["original_evidence_source"] = (
+                        "github-release-api"
+                    )
                     return item, True
 
                 item.metadata["fulltext_status"] = "unavailable"
@@ -1262,6 +1399,164 @@ class HorizonOrchestrator:
                 "without usable original content.[/yellow]\n"
             )
         return kept
+
+    async def _preflight_practice_source_supply(
+        self,
+        items: List[ContentItem],
+        categories: Optional[set[str]] = None,
+    ) -> tuple[List[ContentItem], set[str]]:
+        """Verify required-column source pages before the first paid AI call.
+
+        Only a small, configured reserve is opened. Failed pages are removed from
+        the scoring pool, while successful pages are reused by every later stage.
+        This makes an unavailable source a free discovery failure instead of a
+        model-scoring and full-text-retry expense.
+        """
+        reserves = self.config.digest.preflight_practice_reserves
+        minimums = self._external_practice_minimums()
+        target_categories = [
+            category
+            for category in self.config.digest.practice_targets
+            if category in minimums
+            and (categories is None or category in categories)
+            and reserves.get(category, 0) > 0
+        ]
+        if not target_categories:
+            ready = {
+                category
+                for category in minimums
+                if any(
+                    self._source_practice_category(item) == category
+                    and item.metadata.get("preflight_evidence_ready") is True
+                    for item in items
+                )
+            }
+            return items, ready
+
+        pools: Dict[str, List[ContentItem]] = {}
+        for category in target_categories:
+            pool = [
+                item
+                for item in items
+                if self._source_practice_category(item) == category
+                and item.metadata.get("fulltext_status") not in {
+                    "success",
+                    "unavailable",
+                }
+            ]
+            pool.sort(key=self._candidate_priority)
+            pools[category] = pool[: reserves[category]]
+
+        preflight_items: List[ContentItem] = []
+        preflight_ids: set[str] = set()
+        while True:
+            added = False
+            for category in target_categories:
+                pool = pools[category]
+                while pool and pool[0].id in preflight_ids:
+                    pool.pop(0)
+                if not pool:
+                    continue
+                item = pool.pop(0)
+                item.metadata["minimum_backfill"] = True
+                item.metadata["verification_target_practice_category"] = category
+                preflight_items.append(item)
+                preflight_ids.add(item.id)
+                added = True
+            if not added:
+                break
+
+        if preflight_items:
+            self.console.print(
+                f"{self.icons['fetch']} Preflight-checking {len(preflight_items)} "
+                "required-column source pages before AI scoring\n"
+            )
+            hydrated = await self.hydrate_selected_items(preflight_items)
+            for item in hydrated:
+                category = self._source_practice_category(item)
+                is_ready = bool(
+                    category
+                    and self._preflight_category_evidence_ready(item, category)
+                )
+                item.metadata["preflight_evidence_ready"] = is_ready
+                item.metadata["analysis_input_fulltext"] = is_ready
+
+        usable_items = [
+            item
+            for item in items
+            if item.metadata.get("fulltext_status") != "unavailable"
+        ]
+        ready = {
+            category
+            for category in minimums
+            if sum(
+                self._source_practice_category(item) == category
+                and item.metadata.get("preflight_evidence_ready") is True
+                for item in usable_items
+            )
+            >= minimums[category]
+        }
+        self.console.print(
+            f"{self.icons['detail']} Preflight-ready required columns: "
+            f"{len(ready)}/{len(minimums)}\n"
+        )
+        return usable_items, ready
+
+    @staticmethod
+    def _preflight_category_evidence_ready(
+        item: ContentItem,
+        category: str,
+    ) -> bool:
+        """Cheaply reject thin pages that cannot satisfy a column definition."""
+        content = " ".join((item.content or "").split()).casefold()
+        if len(content) < 200:
+            return False
+        if category != "enterprise-case":
+            return True
+
+        workflow_terms = (
+            "workflow",
+            "integrat",
+            "deploy",
+            "rollout",
+            "implemented",
+            "built",
+            "process",
+            "agent",
+            "工作流",
+            "流程",
+            "部署",
+            "接入",
+            "实施",
+            "智能体",
+        )
+        outcome_terms = (
+            "reduced",
+            "increased",
+            "saved",
+            "improved",
+            "achieved",
+            "automated",
+            "cut ",
+            "hours",
+            "minutes",
+            "percent",
+            "降低",
+            "提升",
+            "节省",
+            "缩短",
+            "自动化",
+            "小时",
+            "分钟",
+        )
+        has_workflow = any(term in content for term in workflow_terms)
+        has_outcome = any(term in content for term in outcome_terms)
+        has_measure = bool(re.search(r"(?:\d[\d,.]*\s*%|\d+\s*(?:x|倍|小时|分钟|天))", content))
+        has_named_subject = (
+            len(re.findall(r"[A-Za-z][A-Za-z0-9&'-]+", item.title)) >= 2
+            or len(re.findall(r"[\u4e00-\u9fff]", item.title)) >= 4
+        )
+        return has_named_subject and has_workflow and has_outcome and has_measure
 
     async def _hydrate_and_reanalyze_practice_rescue(
         self,
@@ -1326,6 +1621,7 @@ class HorizonOrchestrator:
                 and item.processing
                 and item.processing.analysis
                 and item.processing.analysis.score is not None
+                and not item.metadata.get("analysis_input_fulltext")
             ]
             matching.sort(key=lambda item: rescue_priority(item, category))
             pools[category] = matching
@@ -2018,6 +2314,19 @@ class HorizonOrchestrator:
                 )
                 tasks.append(self._fetch_with_progress("RSS Feeds", rss_scraper, since))
 
+            # Dated first-party customer-story indexes. These are more reliable
+            # enterprise-case discovery sources than search-result snippets.
+            customer_story_sources = getattr(
+                self.config.sources, "customer_stories", []
+            )
+            if customer_story_sources:
+                story_scraper = CustomerStoriesScraper(customer_story_sources, client)
+                tasks.append(
+                    self._fetch_with_progress(
+                        "Official Customer Stories", story_scraper, since
+                    )
+                )
+
             # Reddit
             if self.config.sources.reddit.enabled:
                 reddit_scraper = RedditScraper(self.config.sources.reddit, client)
@@ -2154,6 +2463,20 @@ class HorizonOrchestrator:
                             client,
                             ExtractorRegistry(self.config.extractors),
                         ),
+                        since,
+                    )
+                )
+
+            customer_story_sources = [
+                source
+                for source in getattr(self.config.sources, "customer_stories", [])
+                if wanted(source)
+            ]
+            if customer_story_sources:
+                tasks.append(
+                    self._fetch_with_progress(
+                        "Fallback Official Customer Stories",
+                        CustomerStoriesScraper(customer_story_sources, client),
                         since,
                     )
                 )

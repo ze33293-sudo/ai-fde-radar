@@ -504,6 +504,7 @@ def _count_sources(config: Config) -> int:
     if config.sources.hackernews.enabled:
         count += 1
     count += len([s for s in config.sources.rss if s.enabled])
+    count += len([s for s in config.sources.customer_stories if s.enabled])
     if config.sources.reddit.enabled:
         count += len([s for s in config.sources.reddit.subreddits if s.enabled])
         count += len([s for s in config.sources.reddit.users if s.enabled])

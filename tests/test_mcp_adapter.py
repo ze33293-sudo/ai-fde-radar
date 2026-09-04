@@ -135,6 +135,12 @@ def test_mcp_filter_and_reporting_support_every_registered_source() -> None:
                 "gdelt": {"enabled": True},
                 "google_news": {"enabled": True},
                 "hf_papers": {"enabled": True},
+                "customer_stories": [
+                    {
+                        "name": "Official cases",
+                        "url": "https://example.com/customers",
+                    }
+                ],
             },
         }
     )

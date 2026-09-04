@@ -53,6 +53,11 @@ def main():
         action="store_true",
         help="Bypass the same-day successful-send guard",
     )
+    parser.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help="Verify required source pages and exit before any AI request",
+    )
     add_data_dir_arguments(parser)
     add_log_level_argument(parser)
     args = parser.parse_args()
@@ -117,6 +122,7 @@ def main():
                 force_hours=args.hours,
                 dry_run=args.dry_run,
                 force_send=args.force_send,
+                preflight_only=args.preflight_only,
             )
         )
 

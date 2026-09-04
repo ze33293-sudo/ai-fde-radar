@@ -16,6 +16,11 @@ on:
         required: false
         default: false
         type: boolean
+      preflight_only:
+        description: Validate source supply without calling DeepSeek or sending Feishu
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ai-fde-radar-daily
@@ -70,12 +75,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
           FORCE_SEND: ${{ github.event_name == 'workflow_dispatch' && inputs.force_send || false }}
+          PREFLIGHT_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.preflight_only || false }}
         run: |
           # Use collection.time_window_hours from config so the orchestrator can
           # keep the separate 168-hour category fallback window.
           args=()
           if [[ "$DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
           if [[ "$FORCE_SEND" == "true" ]]; then args+=(--force-send); fi
+          if [[ "$PREFLIGHT_ONLY" == "true" ]]; then
+            # Defense in depth: even an accidental AI/delivery call cannot use
+            # a paid model key or the Feishu webhook during source preflight.
+            unset DEEPSEEK_API_KEY HORIZON_WEBHOOK_URL
+            args+=(--preflight-only --dry-run)
+          fi
           for attempt in 1 2; do
             if uv run horizon "${args[@]}"; then
               exit 0
@@ -88,20 +100,21 @@ jobs:
           exit 1
 
       - name: Persist deduplication and send state
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        if: ${{ !(github.event_name == 'workflow_dispatch' && (inputs.dry_run || inputs.preflight_only)) }}
         shell: bash
         run: |
           mkdir -p docs/state
           cp -R data/state/. docs/state/
 
       - name: Scan public artifacts for secrets
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.preflight_only) }}
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           HORIZON_WEBHOOK_URL: ${{ secrets.HORIZON_WEBHOOK_URL }}
         run: uv run python scripts/verify_no_secrets.py docs data/summaries
 
       - name: Upload dry-run artifacts
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && !inputs.preflight_only }}
         uses: actions/upload-artifact@v4
         with:
           name: ai-fde-radar-dry-run
@@ -112,7 +125,7 @@ jobs:
           if-no-files-found: error
 
       - name: Deploy GitHub Pages
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        if: ${{ !(github.event_name == 'workflow_dispatch' && (inputs.dry_run || inputs.preflight_only)) }}
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

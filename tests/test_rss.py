@@ -146,3 +146,4 @@ def test_rss_prefers_full_content_and_applies_keyword_filters() -> None:
     assert len(items) == 1
     assert items[0].title == "Customer support Agent rollout"
     assert items[0].content.startswith("Full implementation workflow")
+    assert items[0].metadata["feed_content_kind"] == "full"

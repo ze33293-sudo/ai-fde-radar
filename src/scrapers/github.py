@@ -218,6 +218,7 @@ class GitHubScraper(BaseScraper):
                         "repo": f"{owner}/{repo}",
                         "tag": release["tag_name"],
                         "prerelease": release.get("prerelease", False),
+                        "api_content_kind": "release-body",
                         "category": source.category,
                         "region": source.region,
                         "source_tier": source.source_tier,

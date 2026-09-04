@@ -104,6 +104,13 @@ class RSSScraper(BaseScraper):
                 # payload over its teaser so evidence-heavy official feeds can
                 # be assessed without an unnecessary second network fetch.
                 content = self._extract_content(entry)
+                feed_content_kind = (
+                    "full"
+                    if entry.get("content")
+                    and entry.content
+                    and entry.content[0].get("value")
+                    else "summary"
+                )
                 tags = [tag.term for tag in entry.get("tags", [])]
                 if not self._matches_keyword_filters(
                     source,
@@ -138,6 +145,7 @@ class RSSScraper(BaseScraper):
                         "region": source.region,
                         "source_tier": source.source_tier,
                         "practice_category": source.practice_category,
+                        "feed_content_kind": feed_content_kind,
                     },
                 )
                 items.append(item)
