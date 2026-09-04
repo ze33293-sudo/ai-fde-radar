@@ -380,12 +380,21 @@ RSS feed, Reddit subreddit or user, or OpenBB watchlist.
         "url": "https://example.com/feed.xml",
         "enabled": true,
         "category": "ai-ml",
-        "profile": "auto"
+        "profile": "auto",
+        "include_title_keywords": ["customer support", "knowledge base"],
+        "include_keywords": ["evaluation", "resolution rate"],
+        "exclude_keywords": ["sponsored"]
       }
     ]
   }
 }
 ```
+
+Large official feeds can be narrowed before model scoring. `include_title_keywords`
+requires at least one phrase in the entry title, while `include_keywords` searches
+the title, feed body, and tags. `exclude_keywords` rejects an entry when any phrase
+appears. Matching is case-insensitive. When multiple include fields are configured,
+each configured field must match.
 
 ### Reddit
 
@@ -567,7 +576,8 @@ The runtime `collection` section controls the main and optional fallback windows
   "collection": {
     "time_window_hours": 30,
     "fallback_window_hours": 168,
-    "candidate_limit": 60
+    "candidate_limit": 60,
+    "fallback_candidate_limit": 15
   }
 }
 ```
@@ -577,6 +587,8 @@ The runtime `collection` section controls the main and optional fallback windows
   when a required practice column has no eligible item.
 - `candidate_limit`: Maximum number of items sent to model scoring across the
   primary and fallback passes.
+- `fallback_candidate_limit`: Number of scoring slots held back for a targeted
+  fallback search after the primary pass reveals which required columns are empty.
 
 The runtime `digest` section controls final section order and optional balanced
 digest limits:
@@ -601,6 +613,13 @@ digest limits:
       "beginner-tech": 1,
       "china-career": 1,
       "hands-on": 1
+    },
+    "candidate_practice_reserves": {
+      "today-use": 6,
+      "enterprise-case": 12,
+      "method-pitfall": 8,
+      "beginner-tech": 10,
+      "china-career": 9
     },
     "generated_hands_on": true,
     "category_groups": {
@@ -631,6 +650,10 @@ digest limits:
 - `practice_minimums`: Required counts. A below-threshold item may satisfy only a
   minimum and must still pass original-source, factual-evidence, and category
   hard gates. If a minimum remains unmet, delivery aborts.
+- `candidate_practice_reserves`: Per-column model-scoring reserves, independent
+  of final display targets. Use larger values for evidence-heavy or low-volume
+  columns; unused slots return to the quality-first candidate fill. When the sum
+  exceeds the available pass budget, reserves scale proportionally.
 - `generated_hands_on`: Reserve exactly one final slot for a 15–30 minute action
   card generated from the selected external items. This requires both the
   `hands-on` target and minimum to equal `1`.
