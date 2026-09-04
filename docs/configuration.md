@@ -396,6 +396,30 @@ the title, feed body, and tags. `exclude_keywords` rejects an entry when any phr
 appears. Matching is case-insensitive. When multiple include fields are configured,
 each configured field must match.
 
+### Official customer-story indexes
+
+```json
+{
+  "sources": {
+    "customer_stories": [
+      {
+        "name": "Claude Customer Stories",
+        "url": "https://claude.com/customers",
+        "story_path_prefix": "/customers/",
+        "max_results": 30,
+        "profile": "ai-product-fde",
+        "source_tier": 1,
+        "practice_category": "enterprise-case"
+      }
+    ]
+  }
+}
+```
+
+This source reads canonical story links and real publication dates directly from
+a first-party customer-story index. The story page is still opened and checked
+before scoring, so a listing card alone cannot satisfy an enterprise-case minimum.
+
 ### Reddit
 
 Reddit scraping is free and does not require API keys. Subreddit posts and comments prefer `old.reddit.com`; JSON and RSS endpoints are used as fallbacks when needed.
@@ -588,7 +612,8 @@ The runtime `collection` section controls the main and optional fallback windows
 - `candidate_limit`: Maximum number of items sent to model scoring across the
   primary and fallback passes.
 - `fallback_candidate_limit`: Number of scoring slots held back for a targeted
-  fallback search after the primary pass reveals which required columns are empty.
+  fallback search. With source preflight enabled, this search occurs before model
+  scoring whenever a required column has no usable original page.
 
 The runtime `digest` section controls final section order and optional balanced
 digest limits:
@@ -620,6 +645,13 @@ digest limits:
       "method-pitfall": 8,
       "beginner-tech": 10,
       "china-career": 9
+    },
+    "preflight_practice_reserves": {
+      "today-use": 2,
+      "enterprise-case": 6,
+      "method-pitfall": 2,
+      "beginner-tech": 2,
+      "china-career": 3
     },
     "generated_hands_on": true,
     "category_groups": {
@@ -654,6 +686,13 @@ digest limits:
   of final display targets. Use larger values for evidence-heavy or low-volume
   columns; unused slots return to the quality-first candidate fill. When the sum
   exceeds the available pass budget, reserves scale proportionally.
+- `preflight_practice_reserves`: Maximum original pages opened per column before
+  the first model request. Inaccessible pages are removed for free. If the main
+  and targeted fallback windows still cannot supply every required column, the
+  run exits before calling the AI provider. A first-party tier-1 RSS entry may use
+  its complete `content:encoded` article when the linked page blocks automation;
+  an official GitHub Release may likewise use the release body returned by the
+  GitHub API.
 - `generated_hands_on`: Reserve exactly one final slot for a 15–30 minute action
   card generated from the selected external items. This requires both the
   `hands-on` target and minimum to equal `1`.
