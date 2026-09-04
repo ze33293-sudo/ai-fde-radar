@@ -100,8 +100,18 @@ class RSSScraper(BaseScraper):
                     :16
                 ]
 
-                # Extract content
+                # Extract content. Prefer a feed's full ``content:encoded``
+                # payload over its teaser so evidence-heavy official feeds can
+                # be assessed without an unnecessary second network fetch.
                 content = self._extract_content(entry)
+                tags = [tag.term for tag in entry.get("tags", [])]
+                if not self._matches_keyword_filters(
+                    source,
+                    title=entry.get("title", "Untitled"),
+                    content=content,
+                    tags=tags,
+                ):
+                    continue
 
                 if source.content_extractor and self._extractors:
                     extractor = self._extractors.get(source.content_extractor)
@@ -124,7 +134,7 @@ class RSSScraper(BaseScraper):
                     metadata={
                         "feed_name": source.name,
                         "category": source.category,
-                        "tags": [tag.term for tag in entry.get("tags", [])],
+                        "tags": tags,
                         "region": source.region,
                         "source_tier": source.source_tier,
                         "practice_category": source.practice_category,
@@ -174,13 +184,59 @@ class RSSScraper(BaseScraper):
         Returns:
             str: Extracted text content
         """
-        # Try different content fields
+        # ``content:encoded`` is commonly the complete first-party article,
+        # while ``summary``/``description`` is often only a one-line teaser.
+        if "content" in entry and entry.content:
+            content = entry.content[0].get("value", "")
+            if content:
+                return content
         if "summary" in entry:
             return entry.summary
         if "description" in entry:
             return entry.description
-        if "content" in entry and entry.content:
-            # content is usually a list
-            return entry.content[0].get("value", "")
 
         return ""
+
+    @staticmethod
+    def _matches_keyword_filters(
+        source: RSSSourceConfig,
+        *,
+        title: str,
+        content: str,
+        tags: List[str],
+    ) -> bool:
+        """Apply optional case-insensitive filters to a feed entry.
+
+        Large official feeds are useful only when their entries are narrowed to
+        the configured practice pillar. General includes search the title,
+        body, and feed categories; title includes search only the title so
+        boilerplate or broad feed tags cannot admit an unrelated vendor article.
+        """
+        haystack = "\n".join([title, content, *tags]).casefold()
+        title_haystack = title.casefold()
+        includes = [keyword.casefold() for keyword in source.include_keywords]
+        title_includes = [
+            keyword.casefold() for keyword in source.include_title_keywords
+        ]
+        excludes = [keyword.casefold() for keyword in source.exclude_keywords]
+        if includes and not any(
+            RSSScraper._keyword_matches(keyword, haystack) for keyword in includes
+        ):
+            return False
+        if title_includes and not any(
+            RSSScraper._keyword_matches(keyword, title_haystack)
+            for keyword in title_includes
+        ):
+            return False
+        if excludes and any(
+            RSSScraper._keyword_matches(keyword, haystack) for keyword in excludes
+        ):
+            return False
+        return True
+
+    @staticmethod
+    def _keyword_matches(keyword: str, haystack: str) -> bool:
+        """Match short tokens as words and longer phrases as substrings."""
+        if keyword.isalnum() and len(keyword) <= 3:
+            return re.search(rf"\b{re.escape(keyword)}\b", haystack) is not None
+        return keyword in haystack

@@ -287,6 +287,19 @@ class RSSSourceConfig(BaseModel):
     region: SourceRegion = "global"
     source_tier: int = Field(default=2, ge=1, le=3)
     practice_category: Optional[PracticeCategory] = None
+    include_keywords: List[str] = Field(default_factory=list)
+    include_title_keywords: List[str] = Field(default_factory=list)
+    exclude_keywords: List[str] = Field(default_factory=list)
+
+    @field_validator(
+        "include_keywords", "include_title_keywords", "exclude_keywords"
+    )
+    @classmethod
+    def validate_rss_keywords(cls, value: List[str]) -> List[str]:
+        normalized = [keyword.strip() for keyword in value]
+        if any(not keyword for keyword in normalized):
+            raise ValueError("RSS keyword filters must not contain empty strings")
+        return normalized
 
 
 class RedditSubredditConfig(BaseModel):
@@ -649,6 +662,7 @@ class CollectionConfig(BaseModel):
     time_window_hours: int = Field(default=24, gt=0)
     fallback_window_hours: Optional[int] = Field(default=None, gt=0)
     candidate_limit: int = Field(default=60, gt=0)
+    fallback_candidate_limit: int = Field(default=10, ge=0)
     history_days: int = Field(default=7, ge=0, le=365)
     history_path: str = "data/state/seen_items.json"
     sent_marker_dir: str = "data/state/sent"
@@ -670,6 +684,9 @@ class DigestConfig(BaseModel):
     matrix_targets: Dict[str, int] = Field(default_factory=dict)
     practice_targets: Dict[PracticeCategory, int] = Field(default_factory=dict)
     practice_minimums: Dict[PracticeCategory, int] = Field(default_factory=dict)
+    candidate_practice_reserves: Dict[PracticeCategory, int] = Field(
+        default_factory=dict
+    )
     generated_hands_on: bool = False
     quality_fill: bool = True
     deep_items: int = Field(default=5, ge=0)
@@ -688,7 +705,11 @@ class DigestConfig(BaseModel):
         return value
 
     @field_validator(
-        "profile_targets", "matrix_targets", "practice_targets", "practice_minimums"
+        "profile_targets",
+        "matrix_targets",
+        "practice_targets",
+        "practice_minimums",
+        "candidate_practice_reserves",
     )
     @classmethod
     def validate_positive_targets(cls, value: Dict[str, int]) -> Dict[str, int]:
@@ -727,6 +748,10 @@ class DigestConfig(BaseModel):
             if self.practice_minimums.get("hands-on") != 1:
                 raise ValueError(
                     "digest.generated_hands_on requires practice_minimums.hands-on = 1"
+                )
+            if self.candidate_practice_reserves.get("hands-on", 0) > 0:
+                raise ValueError(
+                    "digest.generated_hands_on cannot reserve model candidates for hands-on"
                 )
         return self
 

@@ -187,7 +187,9 @@ class GitHubScraper(BaseScraper):
             List[ContentItem]: Release content items
         """
         owner, repo = source.owner, source.repo
-        url = f"{self.base_url}/repos/{owner}/{repo}/releases"
+        # Ten recent releases are sufficient for the configured seven-day
+        # fallback while avoiding large payloads from fast-moving repositories.
+        url = f"{self.base_url}/repos/{owner}/{repo}/releases?per_page=10"
         items = []
 
         try:
