@@ -709,3 +709,115 @@ def test_selection_keeps_quality_reserve_for_fulltext_failures() -> None:
 
     assert [entry.id for entry in result.items] == ["item-0", "item-1"]
     assert [entry.id for entry in result.reserve_items] == ["item-2", "item-3"]
+
+
+def test_practice_reserve_uses_model_category_and_round_robins_columns() -> None:
+    minimums = {
+        "today-use": 1,
+        "enterprise-case": 1,
+        "method-pitfall": 1,
+        "beginner-tech": 1,
+        "china-career": 1,
+    }
+    radar_config = config(
+        profile_targets={},
+        region_targets={},
+        matrix_targets={},
+        practice_targets={**minimums, "hands-on": 1},
+        practice_minimums={**minimums, "hands-on": 1},
+        generated_hands_on=True,
+        max_items=6,
+        fulltext_reserve=5,
+    )
+    orchestrator = HorizonOrchestrator(radar_config, SimpleNamespace())
+    categories = ["today-use"] * 5 + [
+        "enterprise-case",
+        "method-pitfall",
+        "beginner-tech",
+        "china-career",
+    ]
+    candidates = []
+    for index, category in enumerate(categories):
+        candidate = item(index, "global", "ai-product-fde", 9 - index / 10)
+        candidate.processing.analysis.practice_category = category  # type: ignore[union-attr]
+        candidate.metadata["practice_category"] = "source-hint"
+        candidates.append(candidate)
+
+    reserve = orchestrator._build_practice_reserve(candidates, [], 5)
+
+    assert {
+        entry.processing.analysis.practice_category  # type: ignore[union-attr]
+        for entry in reserve
+    } == set(minimums)
+
+
+def test_fulltext_shortfall_repairs_only_missing_column(monkeypatch: pytest.MonkeyPatch) -> None:
+    minimums = {
+        "today-use": 1,
+        "enterprise-case": 1,
+        "method-pitfall": 1,
+        "beginner-tech": 1,
+        "china-career": 1,
+    }
+    radar_config = config(
+        profile_targets={},
+        region_targets={},
+        matrix_targets={},
+        practice_targets={**minimums, "hands-on": 1},
+        practice_minimums={**minimums, "hands-on": 1},
+        generated_hands_on=True,
+        max_items=6,
+        fulltext_reserve=5,
+    )
+    orchestrator = HorizonOrchestrator(radar_config, SimpleNamespace())
+
+    selected = []
+    for index, category in enumerate(
+        ["today-use", "method-pitfall", "beginner-tech", "china-career"]
+    ):
+        candidate = item(index, "global", "ai-product-fde", 9 - index / 10)
+        candidate.processing.analysis.practice_category = category  # type: ignore[union-attr]
+        candidate.metadata.update(
+            {"practice_category": category, "fulltext_status": "success"}
+        )
+        selected.append(candidate)
+
+    inaccessible = item(10, "global", "ai-product-fde", 9.5)
+    inaccessible.processing.analysis.practice_category = "enterprise-case"  # type: ignore[union-attr]
+    inaccessible.metadata.update(
+        {
+            "practice_category": "enterprise-case",
+            "source_practice_category": "enterprise-case",
+            "fulltext_status": "unavailable",
+        }
+    )
+    alternate = item(11, "global", "ai-product-fde", 8.5)
+    alternate.processing.analysis.practice_category = "enterprise-case"  # type: ignore[union-attr]
+    alternate.metadata.update(
+        {
+            "practice_category": "enterprise-case",
+            "source_practice_category": "enterprise-case",
+        }
+    )
+
+    async def rescue(candidates, missing_categories):  # type: ignore[no-untyped-def]
+        assert missing_categories == {"enterprise-case"}
+        assert [entry.id for entry in candidates] == [alternate.id]
+        alternate.metadata["fulltext_status"] = "success"
+        return [alternate]
+
+    monkeypatch.setattr(
+        orchestrator,
+        "_hydrate_and_reanalyze_practice_rescue",
+        rescue,
+    )
+
+    repaired = asyncio.run(
+        orchestrator._repair_fulltext_practice_shortfalls(
+            selected,
+            [*selected, inaccessible, alternate],
+        )
+    )
+
+    assert {entry.metadata["practice_category"] for entry in repaired} == set(minimums)
+    assert inaccessible not in repaired
