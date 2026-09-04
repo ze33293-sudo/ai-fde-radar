@@ -213,6 +213,96 @@ def test_prefilter_backfills_missing_matrix_supply_without_exceeding_limit() -> 
     assert len({candidate.id for candidate in selected}) == 10
 
 
+def test_candidate_practice_reserves_prioritize_scarce_columns() -> None:
+    radar_config = config(
+        profile_targets={},
+        region_targets={},
+        matrix_targets={},
+        practice_targets={
+            "today-use": 5,
+            "enterprise-case": 5,
+            "method-pitfall": 4,
+            "beginner-tech": 3,
+            "china-career": 2,
+            "hands-on": 1,
+        },
+        candidate_practice_reserves={
+            "today-use": 6,
+            "enterprise-case": 12,
+            "method-pitfall": 8,
+            "beginner-tech": 10,
+            "china-career": 9,
+        },
+        generated_hands_on=True,
+        practice_minimums={"hands-on": 1},
+    )
+    orchestrator = HorizonOrchestrator(radar_config, SimpleNamespace())
+
+    assert orchestrator._candidate_practice_budgets(45) == {
+        "today-use": 6,
+        "enterprise-case": 12,
+        "method-pitfall": 8,
+        "beginner-tech": 10,
+        "china-career": 9,
+    }
+    assert orchestrator._candidate_practice_budgets(
+        15,
+        categories={"enterprise-case", "beginner-tech", "china-career"},
+    ) == {
+        "enterprise-case": 6,
+        "beginner-tech": 5,
+        "china-career": 4,
+    }
+
+
+def test_prefilter_keeps_reserved_candidates_despite_high_volume_column() -> None:
+    reserves = {
+        "today-use": 6,
+        "enterprise-case": 12,
+        "method-pitfall": 8,
+        "beginner-tech": 10,
+        "china-career": 9,
+    }
+    radar_config = config(
+        profile_targets={},
+        region_targets={},
+        matrix_targets={},
+        practice_targets={**reserves, "hands-on": 1},
+        candidate_practice_reserves=reserves,
+        generated_hands_on=True,
+        practice_minimums={"hands-on": 1},
+    )
+    orchestrator = HorizonOrchestrator(radar_config, SimpleNamespace())
+    candidates = []
+    index = 0
+    for practice_category, count in {
+        "today-use": 60,
+        "enterprise-case": 12,
+        "method-pitfall": 8,
+        "beginner-tech": 10,
+        "china-career": 9,
+    }.items():
+        for _ in range(count):
+            candidate = item(index, "global", "ai-product-fde")
+            candidate.processing = None
+            candidate.metadata.update(
+                {
+                    "practice_category": practice_category,
+                    "feed_name": f"{practice_category}-{index}",
+                }
+            )
+            candidates.append(candidate)
+            index += 1
+
+    selected = orchestrator.prefilter_candidates(candidates, limit=45)
+    counts: dict[str, int] = {}
+    for candidate in selected:
+        practice_category = str(candidate.metadata["practice_category"])
+        counts[practice_category] = counts.get(practice_category, 0) + 1
+
+    assert counts == reserves
+
+
 def test_prefilter_soft_source_cap_preserves_source_diversity() -> None:
     radar_config = config()
     radar_config.collection.candidate_limit = 20
@@ -457,10 +547,13 @@ def test_feishu_webhook_token_is_redacted_from_log_url() -> None:
 def test_github_config_has_expected_sources_and_targets() -> None:
     path = Path(__file__).resolve().parents[1] / "data" / "config.github.json"
     payload = Config.model_validate(json.loads(path.read_text(encoding="utf-8")))
-    assert len(payload.sources.google_news_queries()) == 9
+    assert len(payload.sources.google_news_queries()) == 11
+    assert len(payload.sources.github) == 13
+    assert len(payload.sources.rss) == 12
     assert payload.collection.time_window_hours == 30
     assert payload.collection.fallback_window_hours == 168
     assert payload.collection.candidate_limit == 60
+    assert payload.collection.fallback_candidate_limit == 15
     assert payload.digest.max_items == 20
     assert sum(payload.digest.practice_targets.values()) == 20
     assert payload.digest.practice_targets == {
@@ -480,12 +573,54 @@ def test_github_config_has_expected_sources_and_targets() -> None:
         "hands-on": 1,
     }
     assert payload.digest.generated_hands_on is True
+    assert payload.digest.fulltext_reserve == 15
+    assert payload.digest.candidate_practice_reserves == {
+        "today-use": 6,
+        "enterprise-case": 12,
+        "method-pitfall": 8,
+        "beginner-tech": 10,
+        "china-career": 9,
+    }
+    assert {
+        source.repo
+        for source in payload.sources.github
+        if source.practice_category == "china-career"
+    } == {"QwenPaw", "agentscope"}
+    assert all(
+        query.max_results <= 20
+        for query in payload.sources.google_news_queries()
+    )
+    assert {
+        source.name
+        for source in payload.sources.rss
+        if source.practice_category in {
+            "enterprise-case",
+            "method-pitfall",
+            "beginner-tech",
+        }
+    } >= {
+        "AWS Machine Learning - Enterprise Workflows",
+        "AWS Contact Center - AI Delivery",
+        "Salesforce AI Guides",
+    }
     assert all(
         settings.threshold == 7.0
         and settings.require_actionable_within_7_days is False
         for settings in payload.processing.profile_settings.values()
     )
     assert payload.digest.category_groups["raw-papers"].limit == 1
+
+
+def test_daily_workflow_authenticates_github_release_discovery() -> None:
+    path = (
+        Path(__file__).resolve().parents[1]
+        / ".github"
+        / "workflows"
+        / "ai-fde-radar.yml"
+    )
+    workflow = path.read_text(encoding="utf-8")
+
+    assert "GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}" in workflow
 
 
 def test_practice_targets_select_each_beginner_pillar_and_limit_raw_papers() -> None:

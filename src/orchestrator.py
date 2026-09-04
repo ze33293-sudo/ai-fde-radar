@@ -576,8 +576,14 @@ class HorizonOrchestrator:
             # Reserve a few of the 60 scoring slots for a post-analysis,
             # category-specific seven-day fallback.
             candidate_limit = self.config.collection.candidate_limit
+            configured_fallback_reserve = int(
+                getattr(self.config.collection, "fallback_candidate_limit", 10)
+            )
             fallback_reserve = (
-                min(10, max(5, len(external_minimums) * 2))
+                min(
+                    configured_fallback_reserve,
+                    candidate_limit - len(external_minimums),
+                )
                 if external_minimums and candidate_limit > len(external_minimums)
                 else 0
             )
@@ -632,7 +638,9 @@ class HorizonOrchestrator:
                     and self._source_practice_category(item) in missing_for_search
                 ]
                 fallback_candidates = self.prefilter_candidates(
-                    additional_items, limit=remaining_slots
+                    additional_items,
+                    limit=remaining_slots,
+                    practice_categories=missing_for_search,
                 )
                 fallback_analyzed = await self.analyze_items(fallback_candidates)
                 self.ensure_analysis_health(fallback_analyzed)
@@ -887,7 +895,11 @@ class HorizonOrchestrator:
         )
 
     def prefilter_candidates(
-        self, items: List[ContentItem], *, limit: Optional[int] = None
+        self,
+        items: List[ContentItem],
+        *,
+        limit: Optional[int] = None,
+        practice_categories: Optional[set[str]] = None,
     ) -> List[ContentItem]:
         """Apply evidence checks and build a balanced AI-scoring candidate pool.
 
@@ -898,7 +910,10 @@ class HorizonOrchestrator:
         the configured quality-first behavior.
         """
         limit = limit or self.config.collection.candidate_limit
-        practice_budgets = self._candidate_practice_budgets(limit)
+        practice_budgets = self._candidate_practice_budgets(
+            limit,
+            categories=practice_categories,
+        )
         eligible = []
         for item in items:
             if (
@@ -1091,12 +1106,29 @@ class HorizonOrchestrator:
             budgets[key] += 1
         return budgets
 
-    def _candidate_practice_budgets(self, limit: int) -> Dict[str, int]:
-        """Scale practical content-pillar targets to the scoring budget."""
+    def _candidate_practice_budgets(
+        self,
+        limit: int,
+        *,
+        categories: Optional[set[str]] = None,
+    ) -> Dict[str, int]:
+        """Build configurable, scarcity-aware model-scoring reserves.
+
+        Candidate reserves are intentionally independent from final display
+        targets: evidence-heavy or low-volume columns may need more articles
+        reviewed to yield one publishable result.  When the configured
+        reserves exceed the available budget they are scaled proportionally;
+        otherwise unused scoring slots remain available for quality-first fill.
+        """
+        configured = (
+            self.config.digest.candidate_practice_reserves
+            or self.config.digest.practice_targets
+        )
         targets = {
             key: target
-            for key, target in self.config.digest.practice_targets.items()
+            for key, target in configured.items()
             if target > 0
+            and (categories is None or key in categories)
             and not (
                 key == "hands-on" and self.config.digest.generated_hands_on
             )
@@ -1105,14 +1137,24 @@ class HorizonOrchestrator:
         if not targets or total <= 0:
             return {}
 
-        exact = {key: limit * target / total for key, target in targets.items()}
-        budgets = {key: math.floor(value) for key, value in exact.items()}
+        if total <= limit:
+            return dict(targets)
+
+        minimum = 1 if limit >= len(targets) else 0
+        budgets = {key: minimum for key in targets}
+        remaining = limit - sum(budgets.values())
+        exact = {
+            key: remaining * target / total
+            for key, target in targets.items()
+        }
+        for key, value in exact.items():
+            budgets[key] += math.floor(value)
         remainder = limit - sum(budgets.values())
         order = {key: index for index, key in enumerate(targets)}
         for key in sorted(
             targets,
             key=lambda candidate: (
-                -(exact[candidate] - budgets[candidate]),
+                -(exact[candidate] - math.floor(exact[candidate])),
                 order[candidate],
             ),
         )[:remainder]:
@@ -1915,6 +1957,7 @@ class HorizonOrchestrator:
 
             # Google News RSS (key-less news search). A single legacy object and
             # the newer multi-query array are both normalized by SourcesConfig.
+            google_news_resolution_semaphore = asyncio.Semaphore(6)
             google_news_queries = getattr(
                 self.config.sources, "google_news_queries", None
             )
@@ -1932,7 +1975,11 @@ class HorizonOrchestrator:
             for index, gn_config in enumerate(normalized_google_news, start=1):
                 if not gn_config.enabled:
                     continue
-                gn_scraper = GoogleNewsScraper(gn_config, client)
+                gn_scraper = GoogleNewsScraper(
+                    gn_config,
+                    client,
+                    google_news_resolution_semaphore,
+                )
                 tasks.append(
                     self._fetch_with_progress(
                         f"Google News [{index}: {gn_config.query[:36]}]",
@@ -2059,13 +2106,18 @@ class HorizonOrchestrator:
                 )
 
             google_news_queries = self.config.sources.google_news_queries()
+            google_news_resolution_semaphore = asyncio.Semaphore(6)
             for index, gn_config in enumerate(google_news_queries, start=1):
                 if not wanted(gn_config):
                     continue
                 tasks.append(
                     self._fetch_with_progress(
                         f"Fallback Google News [{index}: {gn_config.query[:36]}]",
-                        GoogleNewsScraper(gn_config, client),
+                        GoogleNewsScraper(
+                            gn_config,
+                            client,
+                            google_news_resolution_semaphore,
+                        ),
                         since,
                     )
                 )

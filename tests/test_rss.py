@@ -94,3 +94,55 @@ def test_unknown_extractor_name_ignored() -> None:
 
     assert len(items) == 1
     assert items[0].content == "Short summary from feed."
+
+
+def test_rss_prefers_full_content_and_applies_keyword_filters() -> None:
+    feed = """<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+<channel><title>Official AI</title>
+  <item>
+    <guid>entry-1</guid>
+    <title>Customer support Agent rollout</title>
+    <link>https://example.com/item-1</link>
+    <pubDate>Fri, 24 Apr 2026 12:00:00 GMT</pubDate>
+    <description>Short teaser.</description>
+    <content:encoded><![CDATA[Full implementation workflow with evaluation and a 25% resolution-rate improvement.]]></content:encoded>
+  </item>
+  <item>
+    <guid>entry-2</guid>
+    <title>Quarterly finance update</title>
+    <link>https://example.com/item-2</link>
+    <pubDate>Fri, 24 Apr 2026 13:00:00 GMT</pubDate>
+    <description>Unrelated company news.</description>
+  </item>
+  <item>
+    <guid>entry-3</guid>
+    <title>General platform roadmap</title>
+    <link>https://example.com/item-3</link>
+    <pubDate>Fri, 24 Apr 2026 14:00:00 GMT</pubDate>
+    <description>Boilerplate mentions customer support and knowledge base.</description>
+    <category>customer support</category>
+  </item>
+  <item>
+    <guid>entry-4</guid>
+    <title>Storage platform improvements</title>
+    <link>https://example.com/item-4</link>
+    <pubDate>Fri, 24 Apr 2026 15:00:00 GMT</pubDate>
+    <description>Boilerplate mentions customer support.</description>
+  </item>
+</channel></rss>
+"""
+    client = _make_feed_client(feed)
+    source = RSSSourceConfig(
+        name="Official AI",
+        url="https://example.com/feed.xml",
+        include_keywords=["customer support", "knowledge base"],
+        include_title_keywords=["customer support", "rag"],
+        exclude_keywords=["funding round"],
+    )
+
+    items = asyncio.run(RSSScraper([source], client).fetch(_SINCE))
+
+    assert len(items) == 1
+    assert items[0].title == "Customer support Agent rollout"
+    assert items[0].content.startswith("Full implementation workflow")

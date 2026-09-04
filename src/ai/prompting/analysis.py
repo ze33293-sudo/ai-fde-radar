@@ -75,6 +75,10 @@ Region: {item.metadata.get("region", "global")}
 Suggested practice category: {item.metadata.get("practice_category") or "none"}
 The suggested category is discovery metadata only. Preserve it as context, but choose
 exactly one final category from the evidence; do not force a match.
+When a first-party China-market source is suggested as china-career, use that category
+if the central value is a meaningful domestic product/ecosystem change or a concrete
+shift in the skills applied-AI roles need. Do not move it to today-use merely because
+the changed tool is available, and do not approve routine version churn.
 {verification_section}
 {content_section}
 {discussion_section}"""

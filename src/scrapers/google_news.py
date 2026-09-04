@@ -56,7 +56,12 @@ class GoogleNewsScraper(BaseScraper):
     DECODER_URL = "https://news.google.com/_/DotsSplashUi/data/batchexecute"
     DECODER_RPC_ID = "Fbv4je"
 
-    def __init__(self, config: GoogleNewsConfig, http_client: httpx.AsyncClient):
+    def __init__(
+        self,
+        config: GoogleNewsConfig,
+        http_client: httpx.AsyncClient,
+        resolution_semaphore: Optional[asyncio.Semaphore] = None,
+    ):
         """Initialize the scraper.
 
         Args:
@@ -65,6 +70,7 @@ class GoogleNewsScraper(BaseScraper):
         """
         super().__init__({"google_news": config}, http_client)
         self.gn_config = config
+        self._resolution_semaphore = resolution_semaphore
 
     async def fetch(self, since: datetime) -> List[ContentItem]:
         """Fetch articles from the Google News RSS search endpoint.
@@ -211,7 +217,10 @@ class GoogleNewsScraper(BaseScraper):
         Failures remain unresolved and are rejected later by the evidence gate.
         """
         resolved = list(links)
-        semaphore = asyncio.Semaphore(4)
+        # The orchestrator shares this semaphore across every configured query.
+        # Without a shared limit, N queries each opened four decoder requests
+        # and Google routinely disconnected the burst before URLs were resolved.
+        semaphore = self._resolution_semaphore or asyncio.Semaphore(4)
 
         async def fetch_parameters(
             index: int, link: str
@@ -232,12 +241,13 @@ class GoogleNewsScraper(BaseScraper):
         if not requested:
             return resolved
 
-        decoded = await self._decode_article_ids(
-            [
-                (article_id, timestamp, signature)
-                for _, article_id, timestamp, signature in requested
-            ]
-        )
+        async with semaphore:
+            decoded = await self._decode_article_ids(
+                [
+                    (article_id, timestamp, signature)
+                    for _, article_id, timestamp, signature in requested
+                ]
+            )
         for (index, _, _, _), decoded_url in zip(requested, decoded):
             if decoded_url and self._is_original_url(decoded_url):
                 resolved[index] = decoded_url
