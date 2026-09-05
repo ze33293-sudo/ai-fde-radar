@@ -61,6 +61,36 @@
       "title": "ee6aa8248326d425bb9d70aaa4c940f4ed6175e0716d0db2b0e433446aa3dd79",
       "content": "3a568e85489b10e3cd860bb76eeb2fc27ac901bc148c5ae694a5c9fea034b791",
       "seen_at": "2026-09-03T05:12:03.722534+00:00"
+    },
+    {
+      "url": "https://aws.amazon.com/blogs/machine-learning/how-intuit-built-an-agentic-disaster-recovery-assistant-with-amazon-bedrock",
+      "title": "a43976c69698ffdb995e8dee43af1deeb05dbc005105d21c25a6494386f92c95",
+      "content": "855987113e40c2580bf9e05126afaf2f16effaea6c86081ca691ebe60948dbc9",
+      "seen_at": "2026-09-05T06:58:05.082158+00:00"
+    },
+    {
+      "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents",
+      "title": "f4747727aef40de3fbe8762eb7e7b87888e061824fb75f3bfce83b69d8f19950",
+      "content": "a7b4f0eeda09e32801132660b71300fd4b2a002848c4d1e0416bf7fc793cf622",
+      "seen_at": "2026-09-05T06:58:05.082158+00:00"
+    },
+    {
+      "url": "https://www.infoq.cn/article/M792kCZ4FIzk7YHe4WhT",
+      "title": "d22b5baa7a9f299174619230d244864f8da8f7df0f7e06635a554b0583f4d8ff",
+      "content": "f66e89e9f89e4976fc95c15175fc0a0f6cad80b05ab6e3785156c9f0b1e86c0a",
+      "seen_at": "2026-09-05T06:58:05.082158+00:00"
+    },
+    {
+      "url": "https://cj.sina.cn/articles/view/1650111241/625ab30902001hfvg",
+      "title": "a8e9709167628313e50d66e27b4d49740c2b2d97ce5d15bd5493683abd72daa1",
+      "content": "feb5b9ddfb35e7dd80d97ec56d2d61f7500ef0f684affbf1a2502b335b238a64",
+      "seen_at": "2026-09-05T06:58:05.082158+00:00"
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/releases/tag/v0.5.19",
+      "title": "b20475eb2a68bb36f96413fa0a971e0fb8efa94d8e20c60e986da324358ef321",
+      "content": "9243dfd54d5d62647aed65e76a1f3891ed77b243ee56fe0cf2777152c1e8fff5",
+      "seen_at": "2026-09-05T06:58:05.082158+00:00"
     }
   ]
 }
