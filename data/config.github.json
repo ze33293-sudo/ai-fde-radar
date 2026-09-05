@@ -77,7 +77,7 @@
         "profile": "ai-product-fde",
         "region": "china",
         "source_tier": 1,
-        "practice_category": "china-career"
+        "practice_category": "industry-trend"
       },
       {
         "type": "repo_releases",
@@ -87,7 +87,7 @@
         "profile": ["ai-product-fde", "tech-news"],
         "region": "china",
         "source_tier": 1,
-        "practice_category": "china-career"
+        "practice_category": "industry-trend"
       },
       {
         "type": "repo_releases",
@@ -171,6 +171,96 @@
       "practice_category": "method-pitfall"
     },
     "rss": [
+      {
+        "name": "Google AI Industry & Policy",
+        "url": "https://blog.google/innovation-and-ai/technology/ai/rss/",
+        "category": "official-industry-business-signal",
+        "profile": "ai-product-fde",
+        "region": "global",
+        "source_tier": 1,
+        "practice_category": "industry-trend",
+        "include_title_keywords": [
+          "partnership",
+          "partners",
+          "government",
+          "governments",
+          "enterprise",
+          "policy",
+          "regulation",
+          "investment",
+          "acquisition",
+          "infrastructure",
+          "program"
+        ]
+      },
+      {
+        "name": "Microsoft AI Industry & Policy",
+        "url": "https://blogs.microsoft.com/feed/",
+        "category": "official-industry-business-signal",
+        "profile": "ai-product-fde",
+        "region": "global",
+        "source_tier": 1,
+        "practice_category": "industry-trend",
+        "include_title_keywords": [
+          "responsible ai",
+          "ai economy",
+          "ai infrastructure",
+          "partnership",
+          "acquisition",
+          "investment",
+          "policy",
+          "regulation",
+          "adoption",
+          "industry",
+          "pricing",
+          "business model"
+        ]
+      },
+      {
+        "name": "NVIDIA AI Industry & Business",
+        "url": "https://nvidianews.nvidia.com/releases.xml",
+        "category": "official-industry-business-signal",
+        "profile": "ai-product-fde",
+        "region": "global",
+        "source_tier": 1,
+        "practice_category": "industry-trend",
+        "include_title_keywords": [
+          "acquire",
+          "acquisition",
+          "partnership",
+          "investment",
+          "policy",
+          "regulation",
+          "ecosystem",
+          "infrastructure",
+          "enterprise adoption"
+        ]
+      },
+      {
+        "name": "OpenAI Industry & Business",
+        "url": "https://openai.com/news/rss.xml",
+        "category": "official-industry-business-signal",
+        "profile": "ai-product-fde",
+        "region": "global",
+        "source_tier": 1,
+        "practice_category": "industry-trend",
+        "include_title_keywords": [
+          "$",
+          "billion",
+          "fund",
+          "investment",
+          "acquisition",
+          "acquire",
+          "partnership",
+          "policy",
+          "bill",
+          "regulation",
+          "public ai infrastructure",
+          "startups",
+          "expanding access",
+          "expanding openai"
+        ]
+      },
       {
         "name": "OpenAI News",
         "url": "https://openai.com/news/rss.xml",
@@ -520,20 +610,20 @@
       },
       {
         "enabled": true,
-        "query": "(site:careers.tencent.com OR site:jobs.bytedance.com OR site:talent.alibaba.com OR site:jobs.xiaomi.com) (AI产品经理 OR 大模型产品经理 OR AI应用实施 OR 智能体产品 OR FDE) (招聘 OR 岗位 OR 能力要求 OR 厦门 OR 远程)",
-        "language": "zh-CN",
-        "country": "CN",
-        "ceid": "CN:zh-Hans",
+        "query": "(site:openai.com OR site:anthropic.com/news OR site:blog.google OR site:microsoft.com OR site:nvidia.com) (AI OR artificial intelligence OR agent) (pricing OR business model OR partnership OR acquisition OR investment OR regulation OR policy OR ecosystem OR enterprise adoption)",
+        "language": "en-US",
+        "country": "US",
+        "ceid": "US:en",
         "max_results": 20,
-        "category": "china-official-career-signal",
+        "category": "official-industry-business-signal",
         "profile": "ai-product-fde",
-        "region": "china",
+        "region": "global",
         "source_tier": 1,
-        "practice_category": "china-career"
+        "practice_category": "industry-trend"
       },
       {
         "enabled": true,
-        "query": "(site:developer.aliyun.com OR site:cloud.tencent.com/developer OR site:volcengine.com OR site:baidu.com OR site:github.com/agentscope-ai OR site:github.com/langgenius) (大模型 OR 智能体 OR AI Agent OR RAG) (企业 OR 产品 OR 工作流 OR 知识库 OR 客服 OR 发布 OR 开源)",
+        "query": "(site:alibabacloud.com/blog OR site:cloud.tencent.com/developer OR site:volcengine.com OR site:cloud.baidu.com OR site:qwenlm.github.io OR site:deepseek.com) (人工智能 OR 大模型 OR 智能体 OR AI) (商业化 OR 商业模式 OR 定价 OR 合作 OR 生态 OR 战略 OR 产业 OR 政策 OR 投资 OR 开源)",
         "language": "zh-CN",
         "country": "CN",
         "ceid": "CN:zh-Hans",
@@ -542,7 +632,7 @@
         "profile": "ai-product-fde",
         "region": "china",
         "source_tier": 2,
-        "practice_category": "china-career"
+        "practice_category": "industry-trend"
       },
       {
         "enabled": true,
@@ -590,7 +680,7 @@
       "enterprise-case": 5,
       "method-pitfall": 4,
       "beginner-tech": 3,
-      "china-career": 2,
+      "industry-trend": 2,
       "hands-on": 1
     },
     "practice_minimums": {
@@ -598,7 +688,7 @@
       "enterprise-case": 1,
       "method-pitfall": 1,
       "beginner-tech": 1,
-      "china-career": 1,
+      "industry-trend": 1,
       "hands-on": 1
     },
     "candidate_practice_reserves": {
@@ -606,14 +696,14 @@
       "enterprise-case": 12,
       "method-pitfall": 8,
       "beginner-tech": 10,
-      "china-career": 9
+      "industry-trend": 9
     },
     "preflight_practice_reserves": {
       "today-use": 2,
       "enterprise-case": 6,
       "method-pitfall": 2,
       "beginner-tech": 2,
-      "china-career": 3
+      "industry-trend": 3
     },
     "generated_hands_on": true,
     "quality_fill": true,

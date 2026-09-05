@@ -56,7 +56,7 @@ PracticeCategory = Literal[
     "enterprise-case",
     "method-pitfall",
     "beginner-tech",
-    "china-career",
+    "industry-trend",
     "hands-on",
 ]
 

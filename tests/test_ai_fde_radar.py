@@ -223,7 +223,7 @@ def test_candidate_practice_reserves_prioritize_scarce_columns() -> None:
             "enterprise-case": 5,
             "method-pitfall": 4,
             "beginner-tech": 3,
-            "china-career": 2,
+            "industry-trend": 2,
             "hands-on": 1,
         },
         candidate_practice_reserves={
@@ -231,7 +231,7 @@ def test_candidate_practice_reserves_prioritize_scarce_columns() -> None:
             "enterprise-case": 12,
             "method-pitfall": 8,
             "beginner-tech": 10,
-            "china-career": 9,
+            "industry-trend": 9,
         },
         generated_hands_on=True,
         practice_minimums={"hands-on": 1},
@@ -243,15 +243,15 @@ def test_candidate_practice_reserves_prioritize_scarce_columns() -> None:
         "enterprise-case": 12,
         "method-pitfall": 8,
         "beginner-tech": 10,
-        "china-career": 9,
+        "industry-trend": 9,
     }
     assert orchestrator._candidate_practice_budgets(
         15,
-        categories={"enterprise-case", "beginner-tech", "china-career"},
+        categories={"enterprise-case", "beginner-tech", "industry-trend"},
     ) == {
         "enterprise-case": 6,
         "beginner-tech": 5,
-        "china-career": 4,
+        "industry-trend": 4,
     }
 
 
@@ -261,7 +261,7 @@ def test_prefilter_keeps_reserved_candidates_despite_high_volume_column() -> Non
         "enterprise-case": 12,
         "method-pitfall": 8,
         "beginner-tech": 10,
-        "china-career": 9,
+        "industry-trend": 9,
     }
     radar_config = config(
         profile_targets={},
@@ -280,7 +280,7 @@ def test_prefilter_keeps_reserved_candidates_despite_high_volume_column() -> Non
         "enterprise-case": 12,
         "method-pitfall": 8,
         "beginner-tech": 10,
-        "china-career": 9,
+        "industry-trend": 9,
     }.items():
         for _ in range(count):
             candidate = item(index, "global", "ai-product-fde")
@@ -549,7 +549,7 @@ def test_github_config_has_expected_sources_and_targets() -> None:
     payload = Config.model_validate(json.loads(path.read_text(encoding="utf-8")))
     assert len(payload.sources.google_news_queries()) == 11
     assert len(payload.sources.github) == 13
-    assert len(payload.sources.rss) == 12
+    assert len(payload.sources.rss) == 16
     assert payload.collection.time_window_hours == 30
     assert payload.collection.fallback_window_hours == 168
     assert payload.collection.candidate_limit == 60
@@ -561,7 +561,7 @@ def test_github_config_has_expected_sources_and_targets() -> None:
         "enterprise-case": 5,
         "method-pitfall": 4,
         "beginner-tech": 3,
-        "china-career": 2,
+        "industry-trend": 2,
         "hands-on": 1,
     }
     assert payload.digest.practice_minimums == {
@@ -569,7 +569,7 @@ def test_github_config_has_expected_sources_and_targets() -> None:
         "enterprise-case": 1,
         "method-pitfall": 1,
         "beginner-tech": 1,
-        "china-career": 1,
+        "industry-trend": 1,
         "hands-on": 1,
     }
     assert payload.digest.generated_hands_on is True
@@ -579,13 +579,43 @@ def test_github_config_has_expected_sources_and_targets() -> None:
         "enterprise-case": 12,
         "method-pitfall": 8,
         "beginner-tech": 10,
-        "china-career": 9,
+        "industry-trend": 9,
     }
     assert {
         source.repo
         for source in payload.sources.github
-        if source.practice_category == "china-career"
+        if source.practice_category == "industry-trend"
     } == {"QwenPaw", "agentscope"}
+    industry_queries = [
+        query
+        for query in payload.sources.google_news_queries()
+        if query.practice_category == "industry-trend"
+    ]
+    assert len(industry_queries) == 2
+    assert {query.region for query in industry_queries} == {"global", "china"}
+    assert any(query.source_tier == 1 for query in industry_queries)
+    assert all(
+        "career" not in query.query.casefold()
+        and "招聘" not in query.query
+        and "岗位" not in query.query
+        for query in industry_queries
+    )
+    industry_feeds = [
+        source
+        for source in payload.sources.rss
+        if source.practice_category == "industry-trend"
+    ]
+    assert {
+        "Google AI Industry & Policy",
+        "Microsoft AI Industry & Policy",
+        "NVIDIA AI Industry & Business",
+        "OpenAI Industry & Business",
+    } == {source.name for source in industry_feeds}
+    assert all(source.source_tier == 1 for source in industry_feeds)
+    assert all(source.include_title_keywords for source in industry_feeds)
+    assert any(
+        "acquisition" in source.include_title_keywords for source in industry_feeds
+    )
     assert all(
         query.max_results <= 20
         for query in payload.sources.google_news_queries()
@@ -633,7 +663,7 @@ def test_practice_targets_select_each_beginner_pillar_and_limit_raw_papers() -> 
             "enterprise-case": 2,
             "method-pitfall": 1,
             "beginner-tech": 1,
-            "china-career": 1,
+            "industry-trend": 1,
             "hands-on": 1,
         },
         max_items=8,
@@ -653,12 +683,12 @@ def test_practice_targets_select_each_beginner_pillar_and_limit_raw_papers() -> 
         "enterprise-case",
         "method-pitfall",
         "beginner-tech",
-        "china-career",
+        "industry-trend",
         "hands-on",
     ]
     candidates = []
     for index, practice_category in enumerate(categories):
-        candidate = item(index, "china" if practice_category == "china-career" else "global", "ai-product-fde", 9 - index / 10)
+        candidate = item(index, "china" if practice_category == "industry-trend" else "global", "ai-product-fde", 9 - index / 10)
         candidate.processing.analysis.practice_category = practice_category  # type: ignore[union-attr]
         candidate.metadata["practice_category"] = practice_category
         candidates.append(candidate)
@@ -678,7 +708,7 @@ def test_practice_targets_select_each_beginner_pillar_and_limit_raw_papers() -> 
         "enterprise-case": 2,
         "method-pitfall": 1,
         "beginner-tech": 1,
-        "china-career": 1,
+        "industry-trend": 1,
         "hands-on": 1,
     }
     assert sum(
@@ -717,7 +747,7 @@ def test_practice_reserve_uses_model_category_and_round_robins_columns() -> None
         "enterprise-case": 1,
         "method-pitfall": 1,
         "beginner-tech": 1,
-        "china-career": 1,
+        "industry-trend": 1,
     }
     radar_config = config(
         profile_targets={},
@@ -734,7 +764,7 @@ def test_practice_reserve_uses_model_category_and_round_robins_columns() -> None
         "enterprise-case",
         "method-pitfall",
         "beginner-tech",
-        "china-career",
+        "industry-trend",
     ]
     candidates = []
     for index, category in enumerate(categories):
@@ -757,7 +787,7 @@ def test_fulltext_shortfall_repairs_only_missing_column(monkeypatch: pytest.Monk
         "enterprise-case": 1,
         "method-pitfall": 1,
         "beginner-tech": 1,
-        "china-career": 1,
+        "industry-trend": 1,
     }
     radar_config = config(
         profile_targets={},
@@ -773,7 +803,7 @@ def test_fulltext_shortfall_repairs_only_missing_column(monkeypatch: pytest.Monk
 
     selected = []
     for index, category in enumerate(
-        ["today-use", "method-pitfall", "beginner-tech", "china-career"]
+        ["today-use", "method-pitfall", "beginner-tech", "industry-trend"]
     ):
         candidate = item(index, "global", "ai-product-fde", 9 - index / 10)
         candidate.processing.analysis.practice_category = category  # type: ignore[union-attr]

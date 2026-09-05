@@ -32,7 +32,7 @@ TARGETS = {
     "enterprise-case": 5,
     "method-pitfall": 4,
     "beginner-tech": 3,
-    "china-career": 2,
+    "industry-trend": 2,
     "hands-on": 1,
 }
 MINIMUMS = {category: 1 for category in TARGETS}
@@ -99,7 +99,7 @@ def radar_item(
         author="Original source",
         published_at=published_at,
         metadata={
-            "region": "china" if category == "china-career" else "global",
+            "region": "china" if category == "industry-trend" else "global",
             "practice_category": category,
             "source_practice_category": category,
             "model_practice_category": category,
@@ -271,7 +271,7 @@ def test_generated_hands_on_card_is_one_unranked_ticket_agent_exercise() -> None
 def test_summary_keeps_six_columns_order_counts_dates_and_fallback_label() -> None:
     orchestrator = HorizonOrchestrator(radar_config(), SimpleNamespace())
     external = [
-        radar_item(index, category, fallback=category == "china-career")
+        radar_item(index, category, fallback=category == "industry-trend")
         for index, category in enumerate(EXTERNAL_CATEGORIES, start=1)
     ]
     card = orchestrator._build_hands_on_card(external, today="2026-09-03")
@@ -287,6 +287,8 @@ def test_summary_keeps_six_columns_order_counts_dates_and_fallback_label() -> No
     assert [group.actual_count for group in view.groups] == [1, 1, 1, 1, 1, 1]
     assert "今天可以用 1/5" in markdown
     assert "企业落地案例 1/5" in markdown
+    assert "行业趋势与商业信号 1/2" in markdown
+    assert "中国与求职信号" not in markdown
     assert "近 7 日补充" in markdown
     assert "9月" in markdown
     hands_on_section = markdown.split("## 今天动手做 1/1", 1)[1]
@@ -344,7 +346,7 @@ def test_run_uses_seven_day_fallback_then_builds_complete_external_digest(
         radar_item(index, category)
         for index, category in enumerate(EXTERNAL_CATEGORIES[:-1], start=1)
     ]
-    fallback = radar_item(50, "china-career", score=6.5, fallback=True)
+    fallback = radar_item(50, "industry-trend", score=6.5, fallback=True)
     searched: list[set[str]] = []
     enriched: list[ContentItem] = []
 
@@ -379,7 +381,7 @@ def test_run_uses_seven_day_fallback_then_builds_complete_external_digest(
 
     asyncio.run(orchestrator.run(dry_run=True))
 
-    assert searched == [{"china-career"}]
+    assert searched == [{"industry-trend"}]
     assert {item.id for item in enriched} == {item.id for item in [*fresh, fallback]}
     selected_fallback = next(item for item in enriched if item.id == fallback.id)
     assert selected_fallback.metadata["minimum_backfill"] is True
@@ -428,7 +430,7 @@ def test_run_aborts_before_delivery_when_fallback_still_misses_a_column(
     monkeypatch.setattr(orchestrator, "analyze_items", analyze)
     monkeypatch.setattr(orchestrator, "merge_topic_duplicates", no_topic_dedup)
 
-    with pytest.raises(RuntimeError, match="china-career"):
+    with pytest.raises(RuntimeError, match="industry-trend"):
         asyncio.run(orchestrator.run())
 
     notifier.send_daily_summary.assert_not_awaited()
@@ -440,7 +442,7 @@ def test_metrics_report_each_column_funnel_and_generated_card(tmp_path) -> None:
     config.metrics.output_dir = str(tmp_path / "metrics")
     orchestrator = HorizonOrchestrator(config, SimpleNamespace())
     external = [
-        radar_item(index, category, fallback=category == "china-career")
+        radar_item(index, category, fallback=category == "industry-trend")
         for index, category in enumerate(EXTERNAL_CATEGORIES, start=1)
     ]
     card = orchestrator._build_hands_on_card(external, today="2026-09-03")
@@ -471,7 +473,7 @@ def test_metrics_report_each_column_funnel_and_generated_card(tmp_path) -> None:
     diagnostics = payload["selection"]["practice_diagnostics"]
     assert diagnostics["today-use"]["fetched"] == 1
     assert diagnostics["today-use"]["scored"] == 1
-    assert diagnostics["china-career"]["fallback"] == 1
+    assert diagnostics["industry-trend"]["fallback"] == 1
     assert diagnostics["hands-on"]["final"] == 1
     assert payload["selection"]["generated_hands_on_cards"] == 1
 
@@ -486,7 +488,7 @@ def test_preflight_opens_reserves_and_rejects_inaccessible_items_before_ai(
         "enterprise-case": 2,
         "method-pitfall": 1,
         "beginner-tech": 1,
-        "china-career": 1,
+        "industry-trend": 1,
     }
     orchestrator = HorizonOrchestrator(config, SimpleNamespace())
     candidates = [

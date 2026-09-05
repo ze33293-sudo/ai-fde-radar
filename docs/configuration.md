@@ -628,7 +628,7 @@ digest limits:
       "enterprise-case": 5,
       "method-pitfall": 4,
       "beginner-tech": 3,
-      "china-career": 2,
+      "industry-trend": 2,
       "hands-on": 1
     },
     "practice_minimums": {
@@ -636,7 +636,7 @@ digest limits:
       "enterprise-case": 1,
       "method-pitfall": 1,
       "beginner-tech": 1,
-      "china-career": 1,
+      "industry-trend": 1,
       "hands-on": 1
     },
     "candidate_practice_reserves": {
@@ -644,14 +644,14 @@ digest limits:
       "enterprise-case": 12,
       "method-pitfall": 8,
       "beginner-tech": 10,
-      "china-career": 9
+      "industry-trend": 9
     },
     "preflight_practice_reserves": {
       "today-use": 2,
       "enterprise-case": 6,
       "method-pitfall": 2,
       "beginner-tech": 2,
-      "china-career": 3
+      "industry-trend": 3
     },
     "generated_hands_on": true,
     "category_groups": {

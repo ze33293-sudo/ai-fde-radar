@@ -54,6 +54,13 @@ from .processing.history import HistoryStore
 from .extractors.trafilatura import TrafilaturaExtractor
 
 
+_SOURCE_HTTP_HEADERS = {
+    # A descriptive User-Agent keeps public RSS/article endpoints such as
+    # Microsoft Blogs from rejecting httpx's otherwise anonymous requests.
+    "User-Agent": "AI-FDE-Radar/1.0 (+https://github.com/ze33293-sudo/ai-fde-radar)",
+}
+
+
 _TRACKING_QUERY_PARAMETERS = {
     "_ga",
     "dclid",
@@ -259,23 +266,31 @@ _PRACTICE_CATEGORY_SIGNALS = {
         "架构",
         "对比",
     },
-    "china-career": {
-        "product manager",
-        "forward deployed engineer",
-        "fde",
-        "job description",
-        "hiring",
-        "interview",
-        "portfolio",
-        "career",
-        "产品经理",
-        "应用实施",
-        "岗位",
-        "招聘",
-        "面试",
-        "作品集",
-        "能力要求",
-        "厦门",
+    "industry-trend": {
+        "market",
+        "industry",
+        "business model",
+        "pricing",
+        "partnership",
+        "acquisition",
+        "investment",
+        "regulation",
+        "policy",
+        "ecosystem",
+        "enterprise adoption",
+        "commercialization",
+        "市场",
+        "行业",
+        "商业化",
+        "商业模式",
+        "定价",
+        "生态",
+        "合作",
+        "并购",
+        "投资",
+        "监管",
+        "政策",
+        "规模化采用",
     },
     "hands-on": {
         "hands-on",
@@ -1327,7 +1342,11 @@ class HorizonOrchestrator:
         extractor = TrafilaturaExtractor(TrafilaturaExtractorConfig())
         semaphore = asyncio.Semaphore(5)
 
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(
+            timeout=30.0,
+            follow_redirects=True,
+            headers=_SOURCE_HTTP_HEADERS,
+        ) as client:
             async def hydrate(item: ContentItem) -> tuple[ContentItem, bool]:
                 if (
                     item.metadata.get("fulltext_status")
@@ -2175,12 +2194,13 @@ class HorizonOrchestrator:
                 "可靠性、成本、时延、隐私或人工复核决策；4. 写下待验证问题。",
                 "得到一张可用于 PRD 或面试的“是什么—何时用—如何验证”决策卡。",
             ),
-            "china-career": (
-                "把行业信号映射到作品集证据",
-                "本期中国/求职信号、你的岗位清单或作品集目录",
-                "1. 提取一个真实能力要求；2. 找出现有项目中能证明它的材料；"
-                "3. 补一句量化或可演示证据；4. 若无证据，登记为下一项作品任务。",
-                "完成一条“岗位要求—项目证据—缺口”的三列表记录。",
+            "industry-trend": (
+                "把行业趋势转成产品判断",
+                "本期行业趋势与商业信号、售后工单 Agent 当前定位",
+                "1. 写下已确认的市场变化；2. 区分事实与自己的推断；"
+                "3. 判断它影响需求、定价、渠道、成本或合规中的哪一项；"
+                "4. 写一个未来 30 天可验证的产品假设。",
+                "完成一条“市场事实—产品影响—验证信号”的三列表记录。",
             ),
         }
         title, input_text, steps, completion = templates.get(
@@ -2432,7 +2452,10 @@ class HorizonOrchestrator:
                 in practice_categories
             )
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(
+            timeout=30.0,
+            headers=_SOURCE_HTTP_HEADERS,
+        ) as client:
             tasks = []
             github_sources = [source for source in self.config.sources.github if wanted(source)]
             if github_sources:
@@ -3532,7 +3555,10 @@ class HorizonOrchestrator:
             f"{len(twitter_items)} Twitter items..."
         )
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(
+            timeout=30.0,
+            headers=_SOURCE_HTTP_HEADERS,
+        ) as client:
             if tw_cfg.mode == "playwright":
                 self.console.print(
                     "   [yellow]Reply expansion not yet supported in Playwright mode.[/yellow]"
