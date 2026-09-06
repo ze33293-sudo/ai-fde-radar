@@ -360,3 +360,54 @@ def test_radar_profile_keeps_high_value_non_actionable_score_and_both_categories
     assert item.metadata["source_practice_category"] == "method-pitfall"
     assert item.metadata["model_practice_category"] == "beginner-tech"
     assert item.metadata["practice_category"] == "beginner-tech"
+
+
+def test_required_column_verification_samples_fulltext_head_middle_and_tail():
+    requests = []
+
+    async def complete(**kwargs):
+        requests.append(kwargs)
+        return json.dumps(
+            _practice_result(
+                practice_category="enterprise-case",
+                evidence_complete=True,
+                category_requirements_met=True,
+                evidence_note="The original story contains workflow and outcome metrics.",
+            )
+        )
+
+    item = _make_item("rss:test:fulltext-verification")
+    item.content = (
+        "OPENING-CONTEXT "
+        + "a" * 5000
+        + " MIDDLE-WORKFLOW "
+        + "b" * 5000
+        + " CLOSING-METRIC reduced handling time by 56 percent"
+    )
+    item.metadata.update(
+        {
+            "practice_category": "enterprise-case",
+            "analysis_input_fulltext": True,
+            "verification_target_practice_category": "enterprise-case",
+        }
+    )
+
+    asyncio.run(
+        ContentAnalyzer(
+            SimpleNamespace(complete=complete),
+            PROFILES,
+            profile_settings={
+                "tech-news": ProfileSettingsConfig(
+                    threshold=7,
+                    require_actionable_within_7_days=False,
+                )
+            },
+        )._analyze_item(item)
+    )
+
+    assert len(requests) == 1
+    prompt = requests[0]["user"]
+    assert "[Opening excerpt]" in prompt
+    assert "[Middle excerpt]" in prompt
+    assert "[Closing excerpt]" in prompt
+    assert "CLOSING-METRIC reduced handling time by 56 percent" in prompt

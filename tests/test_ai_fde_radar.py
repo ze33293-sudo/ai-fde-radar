@@ -810,6 +810,18 @@ def test_fulltext_shortfall_repairs_only_missing_column(monkeypatch: pytest.Monk
         candidate.metadata.update(
             {"practice_category": category, "fulltext_status": "success"}
         )
+        if category == "today-use":
+            candidate.title = "Dify v1.9 released"
+            candidate.content = (
+                "Dify released an official workflow feature that is available now. "
+                * 4
+            )
+            candidate.metadata.update(
+                {
+                    "source_practice_category": "today-use",
+                    "source_tier": 1,
+                }
+            )
         selected.append(candidate)
 
     inaccessible = item(10, "global", "ai-product-fde", 9.5)

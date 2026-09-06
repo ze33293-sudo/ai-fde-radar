@@ -61,6 +61,10 @@ _SOURCE_HTTP_HEADERS = {
 }
 
 
+class NonRetryableGenerationError(RuntimeError):
+    """A deterministic edition failure that a same-run retry cannot repair."""
+
+
 _TRACKING_QUERY_PARAMETERS = {
     "_ga",
     "dclid",
@@ -679,7 +683,7 @@ class HorizonOrchestrator:
                     preflight_missing = set(external_minimums) - preflight_ready
 
                 if preflight_missing:
-                    raise RuntimeError(
+                    raise NonRetryableGenerationError(
                         "Required practice source preflight failed before AI scoring; "
                         "no model request was made: "
                         + ", ".join(sorted(preflight_missing))
@@ -701,6 +705,7 @@ class HorizonOrchestrator:
                 f"{self.icons['ai']} Analyzed {len(analyzed_items)} items with AI\n"
             )
             self.ensure_analysis_health(analyzed_items)
+            self._restore_source_verified_practice_minimums(analyzed_items)
 
             qualified_categories = {
                 str(item.metadata.get("practice_category"))
@@ -767,6 +772,7 @@ class HorizonOrchestrator:
                 self.ensure_analysis_health(fallback_analyzed)
                 model_candidates.extend(fallback_candidates)
                 analyzed_items.extend(fallback_analyzed)
+                self._restore_source_verified_practice_minimums(analyzed_items)
                 merged_items = combined_merged
                 history_result = combined_history
             elif not fallback_search_performed:
@@ -794,10 +800,11 @@ class HorizonOrchestrator:
                     analyzed_items,
                     missing_for_verification,
                 )
+                self._restore_source_verified_practice_minimums(analyzed_items)
 
             if not all_items:
                 if external_minimums:
-                    raise RuntimeError(
+                    raise NonRetryableGenerationError(
                         "No unseen candidates were found for the required practice columns."
                     )
                 self.console.print("[yellow]No new content found. Exiting.[/yellow]")
@@ -1530,6 +1537,8 @@ class HorizonOrchestrator:
         content = " ".join((item.content or "").split()).casefold()
         if len(content) < 200:
             return False
+        if category == "today-use":
+            return HorizonOrchestrator._today_use_evidence_ready(item)
         if category != "enterprise-case":
             return True
 
@@ -1570,12 +1579,125 @@ class HorizonOrchestrator:
         )
         has_workflow = any(term in content for term in workflow_terms)
         has_outcome = any(term in content for term in outcome_terms)
-        has_measure = bool(re.search(r"(?:\d[\d,.]*\s*%|\d+\s*(?:x|倍|小时|分钟|天))", content))
+        has_measure = bool(
+            re.search(
+                r"(?:\d[\d,.]*\s*(?:%|percent|x|hours?|minutes?|days?|weeks?|倍|小时|分钟|天)"
+                r"|\b(?:one|two|three|four|five|six|seven|eight|nine|ten)"
+                r"[-\s]+(?:hours?|minutes?|days?|weeks?)\b)",
+                content,
+            )
+        )
+        title_words = re.findall(r"[A-Za-z][A-Za-z0-9&'-]*", item.title)
+        generic_title_words = {
+            "ai",
+            "case",
+            "customer",
+            "customers",
+            "story",
+            "stories",
+            "study",
+            "read",
+            "enterprise",
+        }
         has_named_subject = (
-            len(re.findall(r"[A-Za-z][A-Za-z0-9&'-]+", item.title)) >= 2
+            any(
+                len(word) >= 3 and word.casefold() not in generic_title_words
+                for word in title_words
+            )
             or len(re.findall(r"[\u4e00-\u9fff]", item.title)) >= 4
         )
         return has_named_subject and has_workflow and has_outcome and has_measure
+
+    @staticmethod
+    def _today_use_evidence_ready(item: ContentItem) -> bool:
+        """Validate that a today-use item is an official, usable product release."""
+        if HorizonOrchestrator._source_practice_category(item) != "today-use":
+            return False
+
+        try:
+            source_tier = int(item.metadata.get("source_tier", 99))
+        except (TypeError, ValueError):
+            source_tier = 99
+        url = str(item.url).casefold()
+        official_github_release = bool(
+            item.source_type == SourceType.GITHUB
+            and "/releases/" in url
+            and any(
+                f"github.com/{owner}/" in url
+                for owner in (
+                    "openai",
+                    "anthropics",
+                    "langgenius",
+                    "qwenlm",
+                    "deepseek-ai",
+                    "ollama",
+                )
+            )
+        )
+        if source_tier > 1 and not official_github_release:
+            return False
+
+        evidence = " ".join(
+            (item.title or "", item.content or "", str(item.url))
+        ).casefold()
+        product_signals = (
+            "chatgpt",
+            "openai",
+            "openai-agents",
+            "claude",
+            "anthropic",
+            "gemini",
+            "copilot",
+            "feishu",
+            "lark",
+            "dify",
+            "qwen-agent",
+            "deepseek",
+            "ollama",
+        )
+        availability_signals = (
+            "release",
+            "released",
+            "available now",
+            "generally available",
+            "changelog",
+            "launch",
+            "launched",
+            "new feature",
+            "upgrade",
+            "update",
+            "发布",
+            "上线",
+            "更新",
+            "推出",
+            "开放",
+            "可用",
+        )
+        prerelease_signals = (
+            "coming soon",
+            "waitlist",
+            "private preview",
+            "closed beta",
+            "alpha release",
+            "release candidate",
+            "即将推出",
+            "内测",
+        )
+        has_prerelease_version = bool(
+            re.search(r"(?:^|[-_.])(?:alpha|beta|rc)\d*(?:\b|$)", evidence)
+        )
+        has_version_release = bool(
+            re.search(r"(?:^|[\s/v])v?\d+\.\d+(?:\.\d+)?(?:\b|$)", evidence)
+        )
+        return (
+            any(signal in evidence for signal in product_signals)
+            and (
+                any(signal in evidence for signal in availability_signals)
+                or has_version_release
+            )
+            and not any(signal in evidence for signal in prerelease_signals)
+            and not has_prerelease_version
+        )
 
     async def _hydrate_and_reanalyze_practice_rescue(
         self,
@@ -1680,6 +1802,8 @@ class HorizonOrchestrator:
         if not hydrated:
             return []
 
+        for item in hydrated:
+            item.metadata["analysis_input_fulltext"] = True
         verified = await self.analyze_items(hydrated)
         for item in verified:
             item.metadata["fulltext_reanalyzed"] = True
@@ -1736,6 +1860,11 @@ class HorizonOrchestrator:
             for item in repair_pool
             if item.metadata.get("fulltext_status") == "success"
             and self._passes_practice_hard_gates(item)
+            and (
+                item.processing
+                and item.processing.analysis
+                and item.processing.analysis.practice_category in missing
+            )
         ]
         repaired = self.apply_balanced_digest(
             selected_items + reusable,
@@ -2097,6 +2226,78 @@ class HorizonOrchestrator:
             )
         }
 
+    def _restore_source_verified_practice_minimums(
+        self, items: List[ContentItem]
+    ) -> None:
+        """Restore a strict source category only when a required minimum is empty.
+
+        The model remains the normal classifier.  This narrow recovery path is
+        limited to categories with deterministic evidence contracts and to
+        original pages that passed preflight.  It prevents a valid first-party
+        release or customer story from disappearing solely because the model
+        chose a neighboring single-label category.
+        """
+        minimums = self._external_practice_minimums()
+        supported = {"today-use", "enterprise-case"}
+
+        def model_category(item: ContentItem) -> Optional[str]:
+            analysis = item.processing.analysis if item.processing else None
+            return analysis.practice_category if analysis else None
+
+        counts: Dict[str, int] = defaultdict(int)
+        for item in items:
+            if self._passes_practice_hard_gates(item):
+                category = model_category(item)
+                if category:
+                    counts[category] += 1
+
+        for category, minimum in minimums.items():
+            if category not in supported or counts.get(category, 0) >= minimum:
+                continue
+            candidates = []
+            for item in items:
+                analysis = item.processing.analysis if item.processing else None
+                if (
+                    not analysis
+                    or analysis.score is None
+                    or self._source_practice_category(item) != category
+                    or item.metadata.get("preflight_evidence_ready") is not True
+                    or not self._preflight_category_evidence_ready(item, category)
+                ):
+                    continue
+                previous = model_category(item)
+                replacing_required_singleton = bool(
+                    previous in minimums
+                    and previous != category
+                    and counts.get(str(previous), 0) <= minimums[str(previous)]
+                )
+                candidates.append((replacing_required_singleton, *self._minimum_candidate_priority(item), item))
+
+            candidates.sort(key=lambda candidate: candidate[:-1])
+            for candidate in candidates:
+                item = candidate[-1]
+                if counts.get(category, 0) >= minimum:
+                    break
+                analysis = item.processing.analysis if item.processing else None
+                if not analysis:
+                    continue
+                previous = analysis.practice_category
+                item.metadata.setdefault("model_practice_category", previous)
+                item.metadata["practice_category"] = category
+                item.metadata["source_verified_category_override"] = True
+                item.metadata["category_override_reason"] = (
+                    "preflight-verified original source satisfied the required "
+                    f"{category} evidence contract"
+                )
+                analysis.practice_category = category
+                analysis.evidence_complete = True
+                analysis.category_requirements_met = True
+                if not analysis.evidence_note:
+                    analysis.evidence_note = item.metadata["category_override_reason"]
+                if previous and previous != category and counts.get(previous, 0) > 0:
+                    counts[previous] -= 1
+                counts[category] += 1
+
     def _external_item_limit(self) -> int:
         max_items = self.config.digest.max_items
         if max_items is None:
@@ -2133,7 +2334,7 @@ class HorizonOrchestrator:
             if counts.get(category, 0) < minimum
         ]
         if missing:
-            raise RuntimeError(
+            raise NonRetryableGenerationError(
                 "Required practice columns remain empty after the targeted seven-day "
                 f"fallback; delivery aborted: {', '.join(missing)}"
             )
@@ -2148,7 +2349,7 @@ class HorizonOrchestrator:
             if minimum > 0 and counts.get(category, 0) < minimum
         ]
         if missing:
-            raise RuntimeError(
+            raise NonRetryableGenerationError(
                 "Incomplete six-column digest; delivery aborted: " + ", ".join(missing)
             )
         if self.config.digest.max_items is not None and len(items) > self.config.digest.max_items:
@@ -2957,6 +3158,11 @@ class HorizonOrchestrator:
             or analysis.category_requirements_met is not True
         ):
             return False
+        if (
+            analysis.practice_category == "today-use"
+            and not self._today_use_evidence_ready(item)
+        ):
+            return False
         if analysis.practice_category == "hands-on" and self.config.digest.generated_hands_on:
             return False
         return True
@@ -3416,7 +3622,7 @@ class HorizonOrchestrator:
             item_practice = practice(item)
             key = source_key(item)
             item.metadata["practice_category"] = item_practice
-            item.metadata["model_practice_category"] = item_practice
+            item.metadata.setdefault("model_practice_category", item_practice)
             if minimum_fill and (
                 not self.passes_profile_filter(item)
                 or item.metadata.get("is_fallback")

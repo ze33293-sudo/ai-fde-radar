@@ -109,10 +109,26 @@ class ContentAnalyzer:
             item.processing.artifacts.clear()
 
         content_parts = split_content(item.content)
+        analysis_max_chars = profile.definition.content.analysis_max_chars
+        analysis_sampling = profile.definition.content.sampling
+        if (
+            item.metadata.get("analysis_input_fulltext")
+            or item.metadata.get("verification_target_practice_category")
+        ):
+            # Required-column candidates have already paid the network cost to
+            # hydrate the original page.  Give the verifier a bounded view of
+            # the opening, middle and closing instead of truncating it to the
+            # normal 1,000-character feed budget.  Enterprise results and
+            # rollout metrics commonly appear near the end of customer stories.
+            analysis_max_chars = max(
+                analysis_max_chars,
+                profile.definition.content.enrichment_max_chars,
+            )
+            analysis_sampling = "head-middle-tail"
         selected_content = select_content(
             content_parts.main,
-            profile.definition.content.analysis_max_chars,
-            profile.definition.content.sampling,
+            analysis_max_chars,
+            analysis_sampling,
         )
         content_section = f"Content: {selected_content}" if selected_content else ""
 
