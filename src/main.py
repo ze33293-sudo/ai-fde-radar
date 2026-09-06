@@ -13,7 +13,7 @@ from ._cli import add_data_dir_arguments, add_log_level_argument
 from .console_icons import get_icons
 from .logging_config import configure_logging
 from .storage.manager import ConfigError, StorageManager
-from .orchestrator import HorizonOrchestrator
+from .orchestrator import HorizonOrchestrator, NonRetryableGenerationError
 
 
 console = Console(stderr=True)
@@ -129,6 +129,9 @@ def main():
     except KeyboardInterrupt:
         console.print(f"\n[yellow]{icons['warning']} Interrupted by user[/yellow]")
         sys.exit(0)
+    except NonRetryableGenerationError as e:
+        console.print(f"\n[bold red]{icons['error']} Fatal error: {e}[/bold red]")
+        sys.exit(2)
     except Exception as e:
         console.print(f"\n[bold red]{icons['error']} Fatal error: {e}[/bold red]")
         console.print_exception()

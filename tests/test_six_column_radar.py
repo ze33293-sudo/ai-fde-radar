@@ -90,12 +90,20 @@ def radar_item(
     published_at = datetime.now(timezone.utc) - (
         timedelta(days=3) if fallback else timedelta(minutes=index)
     )
+    title = f"{category} item {index}"
+    content = "Source-grounded evidence about an applied AI workflow and result."
+    if category == "today-use":
+        title = f"Dify v1.{index} released"
+        content = (
+            "Dify released this official update and made the documented feature "
+            "available now for users. " * 4
+        )
     return ContentItem(
         id=f"radar-{index}",
         source_type=SourceType.RSS,
-        title=f"{category} item {index}",
+        title=title,
         url=f"https://source{index}.example.com/item",
-        content="Source-grounded evidence about an applied AI workflow and result.",
+        content=content,
         author="Original source",
         published_at=published_at,
         metadata={
@@ -103,6 +111,7 @@ def radar_item(
             "practice_category": category,
             "source_practice_category": category,
             "model_practice_category": category,
+            "source_tier": 1,
             "is_fallback": fallback,
             "freshness_bucket": "fallback" if fallback else "fresh",
             "freshness_label": "近 7 日补充" if fallback else "今日新内容",
@@ -245,6 +254,73 @@ def test_missing_columns_are_hydrated_and_reanalyzed_before_hard_gates(
     )
     assert all(item.metadata["minimum_backfill"] for item in verified)
     assert all(item.metadata["fulltext_reanalyzed"] for item in verified)
+    assert all(item.metadata["analysis_input_fulltext"] for item in verified)
+
+
+def test_enterprise_preflight_accepts_one_word_company_with_verified_metrics() -> None:
+    orchestrator = HorizonOrchestrator(radar_config(), SimpleNamespace())
+    item = radar_item(30, "enterprise-case")
+    item.title = "Carvana"
+    item.content = (
+        "Carvana deployed Claude in a customer support workflow and integrated it "
+        "with Slack. The team reduced alert volume by 56% and improved time to "
+        "answer by 65%. " * 3
+    )
+
+    assert orchestrator._preflight_category_evidence_ready(item, "enterprise-case")
+
+
+def test_verified_enterprise_source_restores_missing_minimum_without_erasing_model_label() -> None:
+    orchestrator = HorizonOrchestrator(radar_config(), SimpleNamespace())
+    item = radar_item(31, "enterprise-case")
+    item.title = "Pictet"
+    item.content = (
+        "Pictet deployed Claude through a staged rollout and integrated it into a "
+        "compliance workflow. The team reduced a two-week process to two hours "
+        "and improved delivery time by 90%. " * 3
+    )
+    item.metadata["preflight_evidence_ready"] = True
+    item.metadata["model_practice_category"] = "method-pitfall"
+    item.metadata["practice_category"] = "method-pitfall"
+    item.processing.analysis.practice_category = "method-pitfall"  # type: ignore[union-attr]
+
+    orchestrator._restore_source_verified_practice_minimums([item])
+
+    assert item.processing.analysis.practice_category == "enterprise-case"  # type: ignore[union-attr]
+    assert item.metadata["practice_category"] == "enterprise-case"
+    assert item.metadata["model_practice_category"] == "method-pitfall"
+    assert item.metadata["source_verified_category_override"] is True
+
+
+def test_today_use_hard_gate_rejects_infrastructure_release_reclassified_by_model() -> None:
+    orchestrator = HorizonOrchestrator(radar_config(), SimpleNamespace())
+    item = radar_item(32, "today-use")
+    item.title = "SGLang v0.5.19 released"
+    item.url = "https://github.com/sgl-project/sglang/releases/tag/v0.5.19"
+    item.content = "SGLang inference runtime release notes and kernel updates. " * 6
+    item.metadata["source_practice_category"] = "beginner-tech"
+    item.metadata["source_tier"] = 2
+
+    assert orchestrator._passes_practice_hard_gates(item) is False
+
+
+def test_today_use_hard_gate_accepts_official_available_product_release() -> None:
+    orchestrator = HorizonOrchestrator(radar_config(), SimpleNamespace())
+    item = radar_item(33, "today-use")
+    item.title = "Dify v1.9 released"
+    item.content = "Dify released the new workflow feature and it is available now. " * 5
+
+    assert orchestrator._passes_practice_hard_gates(item) is True
+
+
+def test_today_use_hard_gate_rejects_release_candidate() -> None:
+    orchestrator = HorizonOrchestrator(radar_config(), SimpleNamespace())
+    item = radar_item(34, "today-use")
+    item.title = "Ollama v0.34.0-rc1"
+    item.url = "https://github.com/ollama/ollama/releases/tag/v0.34.0-rc1"
+    item.content = "Ollama release candidate with preview changes. " * 5
+
+    assert orchestrator._passes_practice_hard_gates(item) is False
 
 
 def test_generated_hands_on_card_is_one_unranked_ticket_agent_exercise() -> None:

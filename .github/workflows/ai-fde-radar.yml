@@ -91,6 +91,12 @@ jobs:
           for attempt in 1 2; do
             if uv run horizon "${args[@]}"; then
               exit 0
+            else
+              status=$?
+            fi
+            if [[ "$status" == "2" ]]; then
+              echo "Generation stopped on a non-retryable required-column failure."
+              exit 2
             fi
             if [[ "$attempt" == "1" ]]; then
               echo "Generation failed; retrying once."
