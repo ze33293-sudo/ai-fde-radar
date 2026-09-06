@@ -198,8 +198,8 @@ def test_evidence_and_category_hard_gates_reject_minimum_filler() -> None:
     result = orchestrator.apply_balanced_digest(candidates, log=False)
 
     assert "enterprise-case" in result.shortfall_reasons
-    with pytest.raises(RuntimeError, match="enterprise-case"):
-        orchestrator._assert_external_practice_minimums(result.items)
+    missing = orchestrator._report_external_practice_shortfalls(result.items)
+    assert missing == ["enterprise-case (0/1)"]
 
 
 def test_missing_columns_are_hydrated_and_reanalyzed_before_hard_gates(
@@ -371,6 +371,27 @@ def test_summary_keeps_six_columns_order_counts_dates_and_fallback_label() -> No
     assert "⭐️ ?/10" not in hands_on_section
 
 
+def test_summary_renders_empty_column_notice_without_hiding_other_columns() -> None:
+    items = [
+        radar_item(index, category)
+        for index, category in enumerate(EXTERNAL_CATEGORIES, start=1)
+        if category != "enterprise-case"
+    ]
+    summarizer = DailySummarizer(practice_targets=TARGETS)
+
+    markdown = asyncio.run(
+        summarizer.generate_summary(items, "2026-09-06", 80, language="zh")
+    )
+
+    assert "## 企业落地案例 0/5" in markdown
+    enterprise_section = markdown.split("## 企业落地案例 0/5", 1)[1].split(
+        "## 产品方法与踩坑", 1
+    )[0]
+    assert "本期暂无可靠更新" in enterprise_section
+    assert "Dify v1.1 released" in markdown
+    assert "method-pitfall item" in markdown
+
+
 def test_targeted_fetch_only_uses_sources_for_missing_categories(monkeypatch) -> None:
     sources = SourcesConfig(
         github=[
@@ -464,7 +485,7 @@ def test_run_uses_seven_day_fallback_then_builds_complete_external_digest(
     assert selected_fallback.metadata["freshness_label"] == "近 7 日补充"
 
 
-def test_run_aborts_before_delivery_when_fallback_still_misses_a_column(
+def test_run_delivers_other_columns_when_fallback_still_misses_a_column(
     tmp_path, monkeypatch
 ) -> None:
     config = radar_config()
@@ -472,7 +493,10 @@ def test_run_aborts_before_delivery_when_fallback_still_misses_a_column(
     config.metrics.enabled = False
     config.collection.history_path = str(tmp_path / "seen.json")
     config.collection.sent_marker_dir = str(tmp_path / "sent")
-    orchestrator = HorizonOrchestrator(config, SimpleNamespace())
+    storage = SimpleNamespace(
+        save_daily_summary=MagicMock(return_value=tmp_path / "summary.md"),
+    )
+    orchestrator = HorizonOrchestrator(config, storage)
     fresh = [
         radar_item(index, category)
         for index, category in enumerate(EXTERNAL_CATEGORIES[:-1], start=1)
@@ -501,16 +525,23 @@ def test_run_aborts_before_delivery_when_fallback_still_misses_a_column(
     async def no_topic_dedup(items, *, log=True):  # type: ignore[no-untyped-def]
         return items
 
+    async def enrich(_items):  # type: ignore[no-untyped-def]
+        return SimpleNamespace()
+
     monkeypatch.setattr(orchestrator, "fetch_all_sources", fetch_all)
     monkeypatch.setattr(orchestrator, "fetch_targeted_sources", fetch_targeted)
     monkeypatch.setattr(orchestrator, "analyze_items", analyze)
     monkeypatch.setattr(orchestrator, "merge_topic_duplicates", no_topic_dedup)
+    monkeypatch.setattr(orchestrator, "enrich_items", enrich)
 
-    with pytest.raises(RuntimeError, match="industry-trend"):
-        asyncio.run(orchestrator.run())
+    asyncio.run(orchestrator.run())
 
-    notifier.send_daily_summary.assert_not_awaited()
-    notifier.send_failure.assert_awaited_once()
+    notifier.send_daily_summary.assert_awaited_once()
+    delivered_summary = notifier.send_daily_summary.await_args.kwargs["summary"]
+    assert "## 行业趋势与商业信号 0/2" in delivered_summary
+    assert "本期暂无可靠更新" in delivered_summary
+    assert "## 今天可以用" in delivered_summary
+    notifier.send_failure.assert_not_awaited()
 
 
 def test_metrics_report_each_column_funnel_and_generated_card(tmp_path) -> None:
@@ -609,7 +640,7 @@ def test_preflight_opens_reserves_and_rejects_inaccessible_items_before_ai(
     )
 
 
-def test_run_aborts_before_model_when_required_source_preflight_is_empty(
+def test_preflight_only_allows_missing_source_column_without_model_call(
     monkeypatch,
     tmp_path,
 ) -> None:
@@ -657,8 +688,7 @@ def test_run_aborts_before_model_when_required_source_preflight_is_empty(
     monkeypatch.setattr(orchestrator, "hydrate_selected_items", hydrate)
     monkeypatch.setattr(orchestrator, "analyze_items", analyze)
 
-    with pytest.raises(RuntimeError, match="no model request was made"):
-        asyncio.run(orchestrator.run(dry_run=True))
+    asyncio.run(orchestrator.run(preflight_only=True))
 
     analyze.assert_not_awaited()
 

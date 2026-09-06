@@ -382,9 +382,16 @@ class WebhookNotifier:
             )
 
         if item_count == 0:
+            if lang == "zh":
+                return (
+                    f"# AI FDE Radar - {date}\n\n"
+                    f"> 已检查 {all_items_count} 条内容，本期没有可发布的可靠资讯。"
+                    "各栏目状态见下方。"
+                )
             return (
                 f"# AI FDE Radar - {date}\n\n"
-                f"> Analyzed {all_items_count} items, but none met the importance threshold."
+                f"> Checked {all_items_count} items, but found no reliable update to "
+                "publish. See each column's status below."
             )
 
         return (
@@ -413,6 +420,9 @@ class WebhookNotifier:
         view = summarizer.build_view(important_items, lang)
         for group in view.groups:
             elements.append(_markdown(f"## {group.name}"))
+            if not group.items:
+                elements.append(_markdown(f"> {summarizer.empty_group_message(lang)}"))
+                continue
             for view_item in group.items:
                 score_suffix = (
                     f" ⭐️ {view_item.score}/10"
