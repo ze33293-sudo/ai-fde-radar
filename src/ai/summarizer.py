@@ -265,6 +265,15 @@ class DailySummarizer:
         return DailySummaryView(groups=groups, item_count=len(items))
 
     @staticmethod
+    def empty_group_message(language: str) -> str:
+        """Return the explicit placeholder used for an empty radar column."""
+        return (
+            "本期暂无可靠更新"
+            if language == "zh"
+            else "No reliable update this edition."
+        )
+
+    @staticmethod
     def _item_anchor(profile_id: str, index: int) -> str:
         safe_profile_id = re.sub(r"[^a-zA-Z0-9_-]+", "-", profile_id).strip("-")
         return f"item-{safe_profile_id or 'unclassified'}-{index}"
@@ -291,7 +300,7 @@ class DailySummarizer:
         """
         labels = LABELS.get(language, LABELS["en"])
 
-        if not items:
+        if not items and not self.practice_targets:
             return self._generate_empty_summary(date, total_fetched, labels)
 
         header = (
@@ -308,6 +317,8 @@ class DailySummarizer:
             if language == "zh":
                 profile_name = _pangu(profile_name)
             toc_entries = [f"**{profile_name}**"]
+            if not group.items:
+                toc_entries.append(self.empty_group_message(language))
             for view_item in group.items:
                 title = _escape_markdown(view_item.title)
                 if language == "zh":
@@ -322,6 +333,10 @@ class DailySummarizer:
                 )
             toc_sections.append("\n".join(toc_entries))
             body_sections.append(f"## {profile_name}\n\n")
+            if not group.items:
+                body_sections.append(
+                    f"> {self.empty_group_message(language)}\n\n"
+                )
             body_sections.extend(
                 self._format_item(
                     view_item.item,
@@ -348,7 +363,7 @@ class DailySummarizer:
     ) -> str:
         """Generate a compact overview for multi-message webhook delivery."""
         labels = LABELS.get(language, LABELS["en"])
-        if not items:
+        if not items and not self.practice_targets:
             return self._generate_empty_summary(date, total_fetched, labels)
 
         if language == "zh":
@@ -371,6 +386,8 @@ class DailySummarizer:
             if language == "zh":
                 profile_name = _pangu(profile_name)
             entries = [f"**{profile_name}**"]
+            if not group.items:
+                entries.append(self.empty_group_message(language))
             for view_item in group.items:
                 title = _escape_markdown(view_item.title)
                 if language == "zh":

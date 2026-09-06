@@ -621,8 +621,8 @@ class HorizonOrchestrator:
 
             # Open a small reserve of source pages before the first paid model
             # request. If a required column has no usable original evidence, do
-            # its seven-day targeted search now and fail for free when supply is
-            # still insufficient.
+            # its seven-day targeted search now. Any remaining gap is rendered
+            # explicitly instead of cancelling the entire edition.
             if self.config.digest.preflight_practice_reserves:
                 model_candidates, preflight_ready = (
                     await self._preflight_practice_source_supply(model_candidates)
@@ -683,10 +683,11 @@ class HorizonOrchestrator:
                     preflight_missing = set(external_minimums) - preflight_ready
 
                 if preflight_missing:
-                    raise NonRetryableGenerationError(
-                        "Required practice source preflight failed before AI scoring; "
-                        "no model request was made: "
-                        + ", ".join(sorted(preflight_missing))
+                    self.console.print(
+                        f"[yellow]{self.icons['warning']} No reliable source candidate "
+                        "was found for these columns after the seven-day fallback; "
+                        "they will display an empty-column notice: "
+                        f"{', '.join(sorted(preflight_missing))}[/yellow]\n"
                     )
 
             if preflight_only:
@@ -694,8 +695,15 @@ class HorizonOrchestrator:
                     raise RuntimeError(
                         "Preflight-only mode requires digest.preflight_practice_reserves."
                     )
+                if preflight_missing:
+                    status_text = (
+                        "Source preflight completed with empty columns; "
+                        "the edition can still render"
+                    )
+                else:
+                    status_text = "Source preflight passed"
                 self.console.print(
-                    f"[bold green]{self.icons['success']} Source preflight passed; "
+                    f"[bold green]{self.icons['success']} {status_text}; "
                     "exiting before AI scoring.[/bold green]"
                 )
                 return
@@ -803,12 +811,10 @@ class HorizonOrchestrator:
                 self._restore_source_verified_practice_minimums(analyzed_items)
 
             if not all_items:
-                if external_minimums:
-                    raise NonRetryableGenerationError(
-                        "No unseen candidates were found for the required practice columns."
-                    )
-                self.console.print("[yellow]No new content found. Exiting.[/yellow]")
-                return
+                self.console.print(
+                    "[yellow]No unseen candidates were found; rendering the configured "
+                    "radar columns with empty-column notices.[/yellow]"
+                )
 
             if len(merged_items) < len(all_items):
                 self.console.print(
@@ -851,7 +857,7 @@ class HorizonOrchestrator:
                 important_items,
                 analyzed_items,
             )
-            self._assert_external_practice_minimums(important_items)
+            self._report_external_practice_shortfalls(important_items)
             self._annotate_digest_depth(important_items)
 
             # Show per-sub-source selection breakdown
@@ -865,7 +871,7 @@ class HorizonOrchestrator:
 
             # 8. Search related stories + enrich with background knowledge (2nd AI pass)
             await self.enrich_items(important_items)
-            if self.config.digest.generated_hands_on:
+            if self.config.digest.generated_hands_on and important_items:
                 important_items.append(self._build_hands_on_card(important_items, today=local_today))
             self._assert_complete_practice_digest(important_items)
 
@@ -2322,9 +2328,10 @@ class HorizonOrchestrator:
         analysis = item.processing.analysis if item.processing else None
         return analysis.score if analysis and analysis.score is not None else -1.0
 
-    def _assert_external_practice_minimums(
+    def _report_external_practice_shortfalls(
         self, items: List[ContentItem]
-    ) -> None:
+    ) -> List[str]:
+        """Report columns that stay empty without aborting the remaining digest."""
         counts: Dict[str, int] = defaultdict(int)
         for item in items:
             counts[str(item.metadata.get("practice_category") or "unclassified")] += 1
@@ -2334,24 +2341,15 @@ class HorizonOrchestrator:
             if counts.get(category, 0) < minimum
         ]
         if missing:
-            raise NonRetryableGenerationError(
-                "Required practice columns remain empty after the targeted seven-day "
-                f"fallback; delivery aborted: {', '.join(missing)}"
+            self.console.print(
+                f"[yellow]{self.icons['warning']} No reliable update after the targeted "
+                "seven-day fallback; rendering empty columns: "
+                f"{', '.join(missing)}[/yellow]\n"
             )
+        return missing
 
     def _assert_complete_practice_digest(self, items: List[ContentItem]) -> None:
-        counts: Dict[str, int] = defaultdict(int)
-        for item in items:
-            counts[str(item.metadata.get("practice_category") or "unclassified")] += 1
-        missing = [
-            f"{category} ({counts.get(category, 0)}/{minimum})"
-            for category, minimum in self.config.digest.practice_minimums.items()
-            if minimum > 0 and counts.get(category, 0) < minimum
-        ]
-        if missing:
-            raise NonRetryableGenerationError(
-                "Incomplete six-column digest; delivery aborted: " + ", ".join(missing)
-            )
+        """Enforce the edition size; empty configured columns are renderable."""
         if self.config.digest.max_items is not None and len(items) > self.config.digest.max_items:
             raise RuntimeError(
                 f"Digest contains {len(items)} items, above max_items="
@@ -3845,6 +3843,9 @@ class HorizonOrchestrator:
         Returns:
             List[ContentItem]: Analyzed items
         """
+        if not items:
+            return []
+
         self.console.print(f"{self.icons['ai']} Analyzing content with AI...")
 
         ai_client = create_ai_client(self.config.ai)

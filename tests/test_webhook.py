@@ -1098,6 +1098,57 @@ class TestSendDailySummary:
         assert panels[1]["header"]["title"]["content"].startswith("2. Item B")
         del os.environ[_TEST_URL_ENV]
 
+    def test_feishu_collapsible_renders_notice_for_each_empty_radar_column(self):
+        os.environ[_TEST_URL_ENV] = _TEST_URL
+        config = WebhookConfig(
+            enabled=True,
+            url_env=_TEST_URL_ENV,
+            platform="feishu",
+            layout="collapsible",
+        )
+        notifier = WebhookNotifier(config)
+        targets = {
+            "today-use": 5,
+            "enterprise-case": 5,
+            "method-pitfall": 4,
+            "beginner-tech": 3,
+            "industry-trend": 2,
+            "hands-on": 1,
+        }
+        summarizer = DailySummarizer(practice_targets=targets)
+
+        messages = notifier.build_daily_summary_messages(
+            summary="# Full summary",
+            important_items=[],
+            all_items_count=40,
+            date="2026-09-06",
+            lang="zh",
+            summarizer=summarizer,
+        )
+
+        elements = messages[0]["_request_body_override"]["card"]["body"]["elements"]
+        headings = [
+            element["content"]
+            for element in elements
+            if element["tag"] == "markdown" and element["content"].startswith("## ")
+        ]
+        notices = [
+            element["content"]
+            for element in elements
+            if element["tag"] == "markdown" and "本期暂无可靠更新" in element["content"]
+        ]
+
+        assert headings == [
+            "## 今天可以用 0/5",
+            "## 企业落地案例 0/5",
+            "## 产品方法与踩坑 0/4",
+            "## 小白技术翻译 0/3",
+            "## 行业趋势与商业信号 0/2",
+            "## 今天动手做 0/1",
+        ]
+        assert len(notices) == 6
+        del os.environ[_TEST_URL_ENV]
+
     def test_feishu_collapsible_groups_profiles_and_resets_numbering(self):
         os.environ[_TEST_URL_ENV] = _TEST_URL
         config = WebhookConfig(
