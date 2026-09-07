@@ -91,6 +91,30 @@
       "title": "b20475eb2a68bb36f96413fa0a971e0fb8efa94d8e20c60e986da324358ef321",
       "content": "9243dfd54d5d62647aed65e76a1f3891ed77b243ee56fe0cf2777152c1e8fff5",
       "seen_at": "2026-09-05T06:58:05.082158+00:00"
+    },
+    {
+      "url": "https://nvidianews.nvidia.com/news/nvidia-and-mediatek-deepen-long-standing-partnership-to-build-ai-edge-to-cloud-computing-platforms",
+      "title": "aa2d3fe0fe4133341d136114cc0e269f8ccb2e8eef15dbf9dd2c74589303ca03",
+      "content": "580c46719de2a7cb223c30da4a2a1146840a5e3d7bb84d8caa14d56dfb1f1489",
+      "seen_at": "2026-09-07T01:31:53.799741+00:00"
+    },
+    {
+      "url": "https://finance.yahoo.com/technology/ai/articles/salesforce-crm-ai-numbers-just-205654689.html",
+      "title": "b48ce3fcb18ae2c15b58eb8345df66d6cc78dd919c2928ba1a0ce3c11525a20c",
+      "content": "9ce9defb0283b569a871d7a0ce733d01986867d0c3b9305f2eb9342d9180f347",
+      "seen_at": "2026-09-07T01:31:53.799741+00:00"
+    },
+    {
+      "url": "https://simonwillison.net/2026/Sep/6/theres-no-limit-to-how-bad-code-can-get",
+      "title": "5f8418f86e7c770bace1e8bebd556beb31f8dc6774e3f0f81c9b3aa49ed9bf6f",
+      "content": "a8697b4d02f6b24bfcb943dca1c6b9552c24a7c3cf628e557a0a3611faf5090e",
+      "seen_at": "2026-09-07T01:31:53.799741+00:00"
+    },
+    {
+      "url": "https://github.com/anthropics/anthropic-sdk-python/releases/tag/v1.3.0",
+      "title": "d824802a85803800d0def241536035e49695c50ffaf479fa6c99ff62a7757640",
+      "content": "f01a5e765512611cc58b3aeaa6850b74e2ccb78e0a9b3c4b9d1b3062a1b62a20",
+      "seen_at": "2026-09-07T01:31:53.799741+00:00"
     }
   ]
 }
