@@ -37,6 +37,36 @@
       "title": "76b7441e2d030bb78bec43c26801972314c66b99daa20bb4531a1d59a01f59c8",
       "content": "a60118c550641e42f446b5f722de754e7cedf14eceacbf9c4dc96a3a6773c4e6",
       "seen_at": "2026-10-22T06:11:15.076673+00:00"
+    },
+    {
+      "url": "https://huggingface.co/blog/microsoft/thinkingbox-training",
+      "title": "8a9f92ebc4880acc2690f703f03fd99553ad768452ffdb4123919f09c4a04b29",
+      "content": "c912d540de0c745e4938a0c8410f08319d4a5adaef19ffe6d557d52e8f44f3ad",
+      "seen_at": "2026-10-23T06:08:51.288502+00:00"
+    },
+    {
+      "url": "https://aws.amazon.com/blogs/machine-learning/how-rescale-built-an-ai-triage-agent-with-strands-agents-and-ai-dlc",
+      "title": "aad046b3180bb22535e9b48d47976011a7f25060b6488ae879b76233a9ec5bb8",
+      "content": "f73236a660dbcaefc740ce3ece9a14c94d06c60602b7d839570646d55acc6062",
+      "seen_at": "2026-10-23T06:08:51.288502+00:00"
+    },
+    {
+      "url": "https://aws.amazon.com/blogs/machine-learning/how-iskaypet-unified-corporate-knowledge-with-amazon-bedrock-managed-knowledge-bases",
+      "title": "2467f8446bc75bd21fd9758f806bdbba216a99053d3f8532d705e33f41c9dadc",
+      "content": "30cc656546add0efb51694d37055b7498308aad34637c23d5893bfee3aeb84d2",
+      "seen_at": "2026-10-23T06:08:51.288502+00:00"
+    },
+    {
+      "url": "https://github.com/ollama/ollama/releases/tag/v0.40.9",
+      "title": "ad16515b06b8713fd091b07442663ff869fc4b3b7b044b3591db5060bede4943",
+      "content": "8b273773ceee772c7f47cf4f040208ffa525e44275b31362bd94bc3476c1cb12",
+      "seen_at": "2026-10-23T06:08:51.288502+00:00"
+    },
+    {
+      "url": "https://developer.nvidia.com/blog/running-frontier-class-ai-models-across-8-nvidia-dgx-spark-nodes",
+      "title": "907780715307443e135e381c313e38b0e3f1c746a3b5a7b8968c498514737131",
+      "content": "ab4d44e035ad70d657cad49dad671fe7ee73031b973fbac458a245423e0abeef",
+      "seen_at": "2026-10-23T06:08:51.288502+00:00"
     }
   ]
 }
