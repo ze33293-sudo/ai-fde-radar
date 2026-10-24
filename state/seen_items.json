@@ -67,6 +67,30 @@
       "title": "907780715307443e135e381c313e38b0e3f1c746a3b5a7b8968c498514737131",
       "content": "ab4d44e035ad70d657cad49dad671fe7ee73031b973fbac458a245423e0abeef",
       "seen_at": "2026-10-23T06:08:51.288502+00:00"
+    },
+    {
+      "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents",
+      "title": "1edea38f7a8a14749ec4f9a1892fb8f95ea0422403379d20ab64d339fe031b26",
+      "content": "6c13898eec0c5881b63f900911d9ad0fc9da6d964181a62d7733a8db86ae1a1c",
+      "seen_at": "2026-10-24T05:56:46.069417+00:00"
+    },
+    {
+      "url": "https://aws.amazon.com/blogs/machine-learning/how-bayer-crop-science-built-an-agentic-decision-engine-on-amazon-bedrock-agentcore-with-aws-unified-operations",
+      "title": "d6012391ffeabb55be0c06bb5f0f8c87035c07d236eaa4298ba076ac19bf039f",
+      "content": "3bedb4f500f3b5bdd27fa25231a63d23ae3d90ac8c2c578c7e6b57b69ffd59de",
+      "seen_at": "2026-10-24T05:56:46.069417+00:00"
+    },
+    {
+      "url": "https://github.com/langgenius/dify/releases/tag/1.18.0",
+      "title": "a2d7e4438a4122a3e8cab4c9acbdb62345e5d0d5ec2b8938720be6b0286fb10c",
+      "content": "8e5ebec7ba6cc476f80e0e674cda46d376dcbfda623898ead35a52dc704c81aa",
+      "seen_at": "2026-10-24T05:56:46.069417+00:00"
+    },
+    {
+      "url": "https://simonwillison.net/2026/Oct/23/kimi-k31-pro",
+      "title": "b5240c35fcdb9be8f3996e675a0e8d7019edd87d5562f663798b157c698500ae",
+      "content": "acad32eb1ebe7f7862cd388210932265f96645594bc23b61459aec1029656b45",
+      "seen_at": "2026-10-24T05:56:46.069417+00:00"
     }
   ]
 }

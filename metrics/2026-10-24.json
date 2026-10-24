@@ -1,0 +1,278 @@
+{
+  "date": "2026-10-24",
+  "generated_at": "2026-10-24T05:56:46.073761+00:00",
+  "dry_run": false,
+  "pipeline": {
+    "fetched": 620,
+    "url_duplicates_removed": 164,
+    "history_duplicates_removed": 2,
+    "model_candidates": 48,
+    "model_scored": 48,
+    "above_threshold": 3,
+    "selected": 5
+  },
+  "selection": {
+    "profiles": {
+      "tech-news": 1,
+      "ai-product-fde": 4
+    },
+    "regions": {
+      "global": 4,
+      "china": 1
+    },
+    "practice_categories": {
+      "method-pitfall": 1,
+      "enterprise-case": 1,
+      "today-use": 1,
+      "beginner-tech": 1,
+      "hands-on": 1
+    },
+    "deep_items": 4,
+    "brief_items": 0,
+    "generated_hands_on_cards": 1,
+    "practice_diagnostics": {
+      "today-use": {
+        "fetched": 30,
+        "scored": 9,
+        "qualified_at_threshold": 1,
+        "final": 1,
+        "fallback": 0,
+        "minimum": 1,
+        "target": 5,
+        "shortfall_reason": "quality supply below target; minimum satisfied"
+      },
+      "enterprise-case": {
+        "fetched": 35,
+        "scored": 4,
+        "qualified_at_threshold": 1,
+        "final": 1,
+        "fallback": 0,
+        "minimum": 1,
+        "target": 5,
+        "shortfall_reason": "quality supply below target; minimum satisfied"
+      },
+      "method-pitfall": {
+        "fetched": 400,
+        "scored": 5,
+        "qualified_at_threshold": 1,
+        "final": 1,
+        "fallback": 1,
+        "minimum": 1,
+        "target": 4,
+        "shortfall_reason": "quality supply below target; minimum satisfied"
+      },
+      "beginner-tech": {
+        "fetched": 68,
+        "scored": 22,
+        "qualified_at_threshold": 1,
+        "final": 1,
+        "fallback": 0,
+        "minimum": 1,
+        "target": 3,
+        "shortfall_reason": "quality supply below target; minimum satisfied"
+      },
+      "industry-trend": {
+        "fetched": 87,
+        "scored": 8,
+        "qualified_at_threshold": 0,
+        "final": 0,
+        "fallback": 0,
+        "minimum": 1,
+        "target": 2,
+        "shortfall_reason": "minimum not met; delivery should have been aborted"
+      },
+      "hands-on": {
+        "fetched": 0,
+        "scored": 0,
+        "qualified_at_threshold": 0,
+        "final": 1,
+        "fallback": 0,
+        "minimum": 1,
+        "target": 1,
+        "shortfall_reason": ""
+      }
+    }
+  },
+  "analysis": {
+    "numeric_scores": 48,
+    "score_buckets": {
+      "1-1.9": 3,
+      "2-2.9": 7,
+      "3-3.9": 8,
+      "4-4.9": 6,
+      "5-5.9": 8,
+      "6-6.9": 10,
+      "7-7.9": 2,
+      "8-8.9": 4
+    },
+    "top_scores": [
+      8.7,
+      8.6,
+      8.3,
+      8.2,
+      7.9,
+      7.0,
+      6.8,
+      6.8,
+      6.7,
+      6.5
+    ],
+    "actionable_within_7_days": 21,
+    "practice_gate_capped": 0,
+    "actionability_gate_enabled": false,
+    "practice_categories": {
+      "today-use": 9,
+      "beginner-tech": 22,
+      "enterprise-case": 4,
+      "industry-trend": 8,
+      "method-pitfall": 5
+    }
+  },
+  "sources": [
+    {
+      "source": "GitHub",
+      "status": "success",
+      "item_count": 17
+    },
+    {
+      "source": "Hacker News",
+      "status": "success",
+      "item_count": 94
+    },
+    {
+      "source": "RSS Feeds",
+      "status": "success",
+      "item_count": 14
+    },
+    {
+      "source": "Official Customer Stories",
+      "status": "empty",
+      "item_count": 0
+    },
+    {
+      "source": "Reddit",
+      "status": "success",
+      "item_count": 9
+    },
+    {
+      "source": "OSS Insight",
+      "status": "empty",
+      "item_count": 0
+    },
+    {
+      "source": "GDELT",
+      "status": "empty",
+      "item_count": 0
+    },
+    {
+      "source": "Google News [1: (site:openai.com OR site:anthropic.c]",
+      "status": "success",
+      "item_count": 20
+    },
+    {
+      "source": "Google News [2: (site:feishu.cn OR site:open.feishu.]",
+      "status": "success",
+      "item_count": 2
+    },
+    {
+      "source": "Google News [3: (site:anthropic.com/customers OR sit]",
+      "status": "success",
+      "item_count": 20
+    },
+    {
+      "source": "Google News [4: (site:anthropic.com/engineering OR s]",
+      "status": "success",
+      "item_count": 20
+    },
+    {
+      "source": "Google News [5: (site:platform.openai.com/docs OR si]",
+      "status": "success",
+      "item_count": 20
+    },
+    {
+      "source": "Google News [6: (site:help.aliyun.com OR site:cloud.]",
+      "status": "success",
+      "item_count": 20
+    },
+    {
+      "source": "Google News [7: (AI agent OR RAG OR LLM evaluation) ]",
+      "status": "success",
+      "item_count": 1
+    },
+    {
+      "source": "Google News [8: (人工智能 OR 大模型 OR 智能体 OR AI产品) (售后 OR ]",
+      "status": "success",
+      "item_count": 14
+    },
+    {
+      "source": "Google News [9: (site:openai.com OR site:anthropic.c]",
+      "status": "success",
+      "item_count": 20
+    },
+    {
+      "source": "Google News [10: (site:alibabacloud.com/blog OR site:]",
+      "status": "success",
+      "item_count": 20
+    },
+    {
+      "source": "Google News [11: (人人都是产品经理 OR InfoQ OR 少数派 OR 机器之心 OR]",
+      "status": "success",
+      "item_count": 8
+    },
+    {
+      "source": "Hugging Face Daily Papers",
+      "status": "empty",
+      "item_count": 0
+    },
+    {
+      "source": "Fallback GitHub",
+      "status": "success",
+      "item_count": 1
+    },
+    {
+      "source": "Fallback Hacker News",
+      "status": "success",
+      "item_count": 200
+    },
+    {
+      "source": "Fallback RSS Feeds",
+      "status": "success",
+      "item_count": 20
+    },
+    {
+      "source": "Fallback Reddit",
+      "status": "success",
+      "item_count": 20
+    },
+    {
+      "source": "Fallback Google News [4: (site:anthropic.com/engineering OR s]",
+      "status": "success",
+      "item_count": 20
+    },
+    {
+      "source": "Fallback Google News [9: (site:openai.com OR site:anthropic.c]",
+      "status": "success",
+      "item_count": 20
+    },
+    {
+      "source": "Fallback Google News [10: (site:alibabacloud.com/blog OR site:]",
+      "status": "success",
+      "item_count": 20
+    },
+    {
+      "source": "Fallback Google News [11: (人人都是产品经理 OR InfoQ OR 少数派 OR 机器之心 OR]",
+      "status": "success",
+      "item_count": 20
+    }
+  ],
+  "model": {
+    "provider": "deepseek",
+    "model": "deepseek-v4-flash",
+    "input_tokens": 169078,
+    "output_tokens": 165469,
+    "total_tokens": 334547,
+    "estimated_cost_usd": 0.292813,
+    "pricing_configured": true,
+    "pricing_note": "DeepSeek V4 Flash peak cache-miss rates checked 2026-09-02; conservative estimate because cache-hit usage is not separated."
+  }
+}
