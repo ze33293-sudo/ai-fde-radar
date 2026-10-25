@@ -29,8 +29,8 @@
     {
       "url": "https://github.com/ollama/ollama/releases/tag/v0.40.8",
       "title": "82f47eb37eca83257a4ced466020c8d14c743b493f4bde41fd16c28b402a5ce9",
-      "content": "0822637706de4410eb95f019046a8c834ca68739858b67eb8b18850eae29021a",
-      "seen_at": "2026-10-22T06:11:15.076673+00:00"
+      "content": "4061f28ca909187eb8294017e4121bce170d23382a243e6522ed6fa4f5629b82",
+      "seen_at": "2026-10-25T06:13:19.939265+00:00"
     },
     {
       "url": "https://m.sohu.com/a/1090748825_120815119?scm=10001.325_13-325_13.0.0-0-0-0-0.5_1334",
@@ -91,6 +91,24 @@
       "title": "b5240c35fcdb9be8f3996e675a0e8d7019edd87d5562f663798b157c698500ae",
       "content": "acad32eb1ebe7f7862cd388210932265f96645594bc23b61459aec1029656b45",
       "seen_at": "2026-10-24T05:56:46.069417+00:00"
+    },
+    {
+      "url": "https://www.microsoft.com/en-us/security/blog/2026/10/19/agents-are-your-newest-insiders-security-must-move-at-their-speed",
+      "title": "a616494dc4025deba2d30d18ed9ad5c84a94bf6cea6ad69361b5503119db45e6",
+      "content": "a253b3e2556828be55f49c803872f5eb286f399aa98ca4c85ef0f8f5353bb9df",
+      "seen_at": "2026-10-25T06:13:19.939265+00:00"
+    },
+    {
+      "url": "https://sd.dzwww.com/sdnews/202610/t20261025_18237153.htm",
+      "title": "6e98a2846cbb6eba5e8c3bb90687f9e6afebb84ed0277d59426b5a765224982f",
+      "content": "ffea6dafc0d324a0abfbfaad366c130d788b15e6853950808d11ff265c2608c8",
+      "seen_at": "2026-10-25T06:13:19.939265+00:00"
+    },
+    {
+      "url": "https://www.volcengine.com/docs/TRAECN/Billingitemsbillingbyquantityseatfee",
+      "title": "c5a02dd2e3265ad2daa45927a63822c4f7645ad746fd46b25c20b611d40a65ad",
+      "content": "5652cbb48a3cd4f187d2581f88c902bd8f73528f2f75111c67ad3e8bbe3d1a60",
+      "seen_at": "2026-10-25T06:13:19.939265+00:00"
     }
   ]
 }
