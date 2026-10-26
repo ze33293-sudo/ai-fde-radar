@@ -1,30 +1,29 @@
 {
-  "date": "2026-10-25",
-  "generated_at": "2026-10-25T06:13:19.941604+00:00",
+  "date": "2026-10-26",
+  "generated_at": "2026-10-26T06:19:13.329432+00:00",
   "dry_run": false,
   "pipeline": {
-    "fetched": 291,
-    "url_duplicates_removed": 23,
-    "history_duplicates_removed": 5,
+    "fetched": 1005,
+    "url_duplicates_removed": 365,
+    "history_duplicates_removed": 3,
     "model_candidates": 60,
     "model_scored": 60,
-    "above_threshold": 5,
+    "above_threshold": 2,
     "selected": 5
   },
   "selection": {
     "profiles": {
-      "ai-product-fde": 4,
-      "tech-news": 1
+      "ai-product-fde": 5
     },
     "regions": {
-      "global": 3,
-      "china": 2
+      "global": 4,
+      "china": 1
     },
     "practice_categories": {
-      "method-pitfall": 1,
-      "enterprise-case": 1,
-      "today-use": 1,
       "beginner-tech": 1,
+      "method-pitfall": 1,
+      "today-use": 1,
+      "enterprise-case": 1,
       "hands-on": 1
     },
     "deep_items": 4,
@@ -32,8 +31,8 @@
     "generated_hands_on_cards": 1,
     "practice_diagnostics": {
       "today-use": {
-        "fetched": 93,
-        "scored": 28,
+        "fetched": 21,
+        "scored": 12,
         "qualified_at_threshold": 0,
         "final": 1,
         "fallback": 1,
@@ -42,9 +41,9 @@
         "shortfall_reason": "quality supply below target; minimum satisfied"
       },
       "enterprise-case": {
-        "fetched": 24,
-        "scored": 2,
-        "qualified_at_threshold": 1,
+        "fetched": 32,
+        "scored": 4,
+        "qualified_at_threshold": 0,
         "final": 1,
         "fallback": 0,
         "minimum": 1,
@@ -52,8 +51,8 @@
         "shortfall_reason": "quality supply below target; minimum satisfied"
       },
       "method-pitfall": {
-        "fetched": 91,
-        "scored": 6,
+        "fetched": 103,
+        "scored": 15,
         "qualified_at_threshold": 1,
         "final": 1,
         "fallback": 1,
@@ -62,18 +61,18 @@
         "shortfall_reason": "quality supply below target; minimum satisfied"
       },
       "beginner-tech": {
-        "fetched": 43,
-        "scored": 20,
-        "qualified_at_threshold": 4,
+        "fetched": 809,
+        "scored": 23,
+        "qualified_at_threshold": 1,
         "final": 1,
-        "fallback": 0,
+        "fallback": 1,
         "minimum": 1,
         "target": 3,
         "shortfall_reason": "quality supply below target; minimum satisfied"
       },
       "industry-trend": {
         "fetched": 40,
-        "scored": 4,
+        "scored": 6,
         "qualified_at_threshold": 0,
         "final": 0,
         "fallback": 0,
@@ -97,52 +96,51 @@
     "numeric_scores": 60,
     "score_buckets": {
       "1-1.9": 5,
-      "2-2.9": 12,
-      "3-3.9": 9,
-      "4-4.9": 5,
-      "5-5.9": 7,
-      "6-6.9": 14,
-      "7-7.9": 7,
-      "8-8.9": 1
+      "2-2.9": 16,
+      "3-3.9": 11,
+      "4-4.9": 10,
+      "5-5.9": 1,
+      "6-6.9": 9,
+      "7-7.9": 8
     },
     "top_scores": [
-      8.4,
-      7.8,
+      7.9,
       7.8,
       7.6,
       7.5,
       7.4,
-      7.2,
-      7.0,
-      6.9,
-      6.8
+      7.4,
+      7.1,
+      7.1,
+      6.5,
+      6.3
     ],
-    "actionable_within_7_days": 22,
+    "actionable_within_7_days": 17,
     "practice_gate_capped": 0,
     "actionability_gate_enabled": false,
     "practice_categories": {
-      "today-use": 28,
-      "enterprise-case": 2,
-      "beginner-tech": 20,
-      "method-pitfall": 6,
-      "industry-trend": 4
+      "today-use": 12,
+      "method-pitfall": 15,
+      "industry-trend": 6,
+      "enterprise-case": 4,
+      "beginner-tech": 23
     }
   },
   "sources": [
     {
       "source": "GitHub",
       "status": "success",
-      "item_count": 12
+      "item_count": 10
     },
     {
       "source": "Hacker News",
       "status": "success",
-      "item_count": 70
+      "item_count": 81
     },
     {
       "source": "RSS Feeds",
       "status": "success",
-      "item_count": 1
+      "item_count": 322
     },
     {
       "source": "Official Customer Stories",
@@ -172,7 +170,7 @@
     {
       "source": "Google News [2: (site:feishu.cn OR site:open.feishu.]",
       "status": "success",
-      "item_count": 2
+      "item_count": 1
     },
     {
       "source": "Google News [3: (site:anthropic.com/customers OR sit]",
@@ -192,17 +190,17 @@
     {
       "source": "Google News [6: (site:help.aliyun.com OR site:cloud.]",
       "status": "success",
-      "item_count": 6
+      "item_count": 15
     },
     {
       "source": "Google News [7: (AI agent OR RAG OR LLM evaluation) ]",
-      "status": "success",
-      "item_count": 1
+      "status": "empty",
+      "item_count": 0
     },
     {
       "source": "Google News [8: (人工智能 OR 大模型 OR 智能体 OR AI产品) (售后 OR ]",
       "status": "success",
-      "item_count": 4
+      "item_count": 12
     },
     {
       "source": "Google News [9: (site:openai.com OR site:anthropic.c]",
@@ -216,8 +214,8 @@
     },
     {
       "source": "Google News [11: (人人都是产品经理 OR InfoQ OR 少数派 OR 机器之心 OR]",
-      "status": "empty",
-      "item_count": 0
+      "status": "success",
+      "item_count": 1
     },
     {
       "source": "Hugging Face Daily Papers",
@@ -227,31 +225,51 @@
     {
       "source": "Fallback GitHub",
       "status": "success",
-      "item_count": 11
+      "item_count": 15
     },
     {
       "source": "Fallback RSS Feeds",
       "status": "success",
-      "item_count": 19
+      "item_count": 345
     },
     {
-      "source": "Fallback Google News [1: (site:openai.com OR site:anthropic.c]",
+      "source": "Fallback Reddit",
+      "status": "success",
+      "item_count": 18
+    },
+    {
+      "source": "Fallback OSS Insight",
+      "status": "empty",
+      "item_count": 0
+    },
+    {
+      "source": "Fallback Google News [5: (site:platform.openai.com/docs OR si]",
       "status": "success",
       "item_count": 20
     },
     {
-      "source": "Fallback Google News [2: (site:feishu.cn OR site:open.feishu.]",
+      "source": "Fallback Google News [6: (site:help.aliyun.com OR site:cloud.]",
       "status": "success",
       "item_count": 20
+    },
+    {
+      "source": "Fallback Google News [7: (AI agent OR RAG OR LLM evaluation) ]",
+      "status": "success",
+      "item_count": 20
+    },
+    {
+      "source": "Fallback Hugging Face Daily Papers",
+      "status": "empty",
+      "item_count": 0
     }
   ],
   "model": {
     "provider": "deepseek",
     "model": "deepseek-v4-flash",
-    "input_tokens": 169525,
-    "output_tokens": 169233,
-    "total_tokens": 338758,
-    "estimated_cost_usd": 0.297979,
+    "input_tokens": 202482,
+    "output_tokens": 177170,
+    "total_tokens": 379652,
+    "estimated_cost_usd": 0.322956,
     "pricing_configured": true,
     "pricing_note": "DeepSeek V4 Flash peak cache-miss rates checked 2026-09-02; conservative estimate because cache-hit usage is not separated."
   }

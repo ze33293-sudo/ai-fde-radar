@@ -109,6 +109,30 @@
       "title": "c5a02dd2e3265ad2daa45927a63822c4f7645ad746fd46b25c20b611d40a65ad",
       "content": "5652cbb48a3cd4f187d2581f88c902bd8f73528f2f75111c67ad3e8bbe3d1a60",
       "seen_at": "2026-10-25T06:13:19.939265+00:00"
+    },
+    {
+      "url": "https://developers.openai.com/codex/pricing",
+      "title": "2a3b9bb87afef3a711d96640f49a00dec5574d86c4f160c795d1b29d427a4544",
+      "content": "7dbcf1791b16de230e3be64aa79e0c2e71a3912c76e6bf60f7d3656d730fa54d",
+      "seen_at": "2026-10-26T06:19:13.326781+00:00"
+    },
+    {
+      "url": "https://www.oreilly.com/radar/how-to-write-a-good-spec-for-ai-agents",
+      "title": "f87cdd5555337894764014aa14f182be860ee254a7126eca2d152520a5dd58e4",
+      "content": "5e90fcecc4e5f6d731dec0618fa288ed82dc3faf6da24df4d54ec904acb1d4cb",
+      "seen_at": "2026-10-26T06:19:13.326781+00:00"
+    },
+    {
+      "url": "https://www.anthropic.com/claude-code",
+      "title": "3f67557c6ba2d6eac1625db07055bdb1333f2cc82b377bfec488e0d41fd07cfb",
+      "content": "7cd1472f95b34d361507af83e947eccc6821a623e2adcf28760b2d7ef7078059",
+      "seen_at": "2026-10-26T06:19:13.326781+00:00"
+    },
+    {
+      "url": "https://hea.china.com/articles/20261026/202610261969006.html",
+      "title": "2bb3b1f0e13a005664eefada93cd6a9fe0b76130d94abb603cb5b41749c93dcb",
+      "content": "49562dfc85d87a7a08d2f6194e2751d04169497b7b1570e3e23bef22045629e4",
+      "seen_at": "2026-10-26T06:19:13.326781+00:00"
     }
   ]
 }
